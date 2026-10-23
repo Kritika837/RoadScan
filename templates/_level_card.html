@@ -1,0 +1,14 @@
+<div class="level-card">
+  <div class="icon" aria-hidden="true">{{ summary.level.current.icon }}</div>
+  <div style="width:100%">
+    <div class="badge-name">{{ summary.level.current.name }}</div>
+    <div class="pts">{{ summary.points|fmtnum }} points</div>
+    {% if summary.level.next %}
+    <div class="progress" role="progressbar" aria-valuenow="{{ summary.level.progress_pct }}" aria-valuemin="0" aria-valuemax="100"><i style="width: {{ summary.level.progress_pct }}%"></i></div>
+    <div style="margin-top:8px;opacity:.9">{{ summary.points|fmtnum }} / {{ summary.level.next.min_points|fmtnum }} &middot; next badge: <b>{{ summary.level.next.name }}</b> ({{ summary.level.points_to_next|fmtnum }} to go)</div>
+    {% else %}
+    <div class="progress"><i style="width:100%"></i></div>
+    <div style="margin-top:8px;opacity:.9">Highest badge reached. Thank you for making roads safer.</div>
+    {% endif %}
+  </div>
+</div>

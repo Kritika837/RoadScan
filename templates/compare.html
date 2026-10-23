@@ -1,0 +1,28 @@
+{% extends "authority_base.html" %}
+{% block title %}Before / After &middot; Roadscan{% endblock %}
+{% block content %}
+<h1>Compare a repair: before &amp; after</h1>
+<p class="lede">Upload a photo of the same spot taken before and after repair work. Roadscan assesses both independently, then compares the results.</p>
+
+<div class="card section-gap">
+  <form action="{{ url_for('compare_page') }}" method="post" enctype="multipart/form-data">
+    <div class="grid-2">
+      <div>
+        <label for="before_image">Before-repair image</label>
+        <input type="file" id="before_image" name="before_image" accept="image/*" required>
+      </div>
+      <div>
+        <label for="after_image">After-repair image</label>
+        <input type="file" id="after_image" name="after_image" accept="image/*" required>
+      </div>
+    </div>
+    <button type="submit" class="btn">Compare</button>
+  </form>
+</div>
+
+<div class="disclaimer">
+  Roadscan will not claim a repair "succeeded" purely from photos looking visually similar.
+  It reports measured differences in detected damage and flags when the two photos don't
+  appear to show a closely matching scene.
+</div>
+{% endblock %}

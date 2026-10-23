@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sev_pill, status_pill %}
+{% block title %}My Reports - RoadScan{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="report-head">
+    <div><h1>My Reports</h1><p class="muted" style="margin:0">Everything you've reported, and where each report stands.</p></div>
+    <a class="btn lane" href="{{ url_for('report_form') }}">Report Road Damage</a>
+  </div>
+  {% if reports %}
+  <div class="rep-list">
+    {% for r in reports %}
+    <div class="rep-card">
+      <div><div class="k">Report ID</div><div class="report-id"><b>{{ r.report_id }}</b></div></div>
+      <div><div class="k">Location</div><div>{{ r.location or 'Not specified' }}</div></div>
+      <div><div class="k">Damage</div><div>{{ r.detected_damage }}</div><div style="margin-top:4px">{{ sev_pill(r.severity_level) }}</div></div>
+      <div><div class="k">Status</div>{{ status_pill(r) }}<div class="muted small" style="margin-top:4px">Submitted {{ r.created_at|fmtday }}</div></div>
+      <div class="go"><a class="btn secondary small" href="{{ url_for('report_detail', report_id=r.report_id) }}">View Report</a></div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card"><div class="empty-state">
+    <h3>You haven't reported anything yet</h3>
+    <p>Spotted a pothole or a crack? It takes under a minute.</p>
+    <a class="btn lane" href="{{ url_for('report_form') }}">Report Road Damage</a>
+    <p class="small" style="margin-top:14px">Have a Report ID already? <a href="{{ url_for('track_report') }}">Track it here</a>.</p>
+  </div></div>
+  {% endif %}
+</div>
+{% endblock %}

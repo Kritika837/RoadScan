@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sev_pill, status_pill, road_tracker %}
+{% block title %}{{ rep.report_id }} - RoadScan{% endblock %}
+{% block head_extra %}{% if rep.latitude is not none and rep.longitude is not none %}{% include "_leaflet.html" %}{% endif %}{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="report-head">
+    <div>
+      <div class="muted small">Report</div>
+      <h1><span class="report-id">{{ rep.report_id }}</span></h1>
+      <div class="muted small">Submitted {{ rep.created_at|fmtday }}{% if is_owner %} &middot; your report{% endif %}</div>
+    </div>
+    <div>{{ status_pill(rep, true) }}</div>
+  </div>
+
+  {% if rep.is_overdue() %}
+  <div class="banner danger" style="margin-bottom:16px"><b>Resolution target exceeded. Escalation required.</b>
+    The {{ cfg.SLA_DAYS }}-day target passed on {{ rep.target_at|fmtday }} ({{ rep.days_overdue }} day{{ '' if rep.days_overdue == 1 else 's' }} ago).
+    Current level: {{ rep.escalation_level_name }}. Escalation is simulated in this prototype: no real authority is notified.</div>
+  {% endif %}
+
+  <div class="quick">
+    <div class="q"><div class="k">Damage</div><div class="v" style="font-size:1.05rem">{{ rep.detected_damage }}</div></div>
+    <div class="q"><div class="k">Severity</div><div class="v">{{ sev_pill(rep.severity_level) }}</div></div>
+    <div class="q"><div class="k">Road Health</div><div class="v">{{ rep.health_score }}<span class="muted" style="font-size:.9rem"> / 100</span></div></div>
+    <div class="q"><div class="k">Repair Priority</div><div class="v"><span class="pill {{ rep.repair_priority|lower }}">{{ rep.repair_priority|title }}</span></div></div>
+  </div>
+
+  <div class="card section-gap">
+    <h2>Progress</h2>
+    {{ road_tracker(timeline, rep.is_overdue()) }}
+    <p class="muted" style="margin:14px 0 0">
+      {% if rep.status == 'RESOLVED' %}Resolved in {{ rep.days_elapsed }} day{{ '' if rep.days_elapsed == 1 else 's' }}.
+      {% else %}Day {{ rep.days_elapsed }} of {{ cfg.SLA_DAYS }} &middot; target resolution {{ rep.target_at|fmtday }}.{% endif %}
+    </p>
+  </div>
+
+  <div class="grid-2 section-gap">
+    <div class="card">
+      <h2>Location</h2>
+      {% if rep.latitude is not none and rep.longitude is not none %}
+      <div class="mini-map" id="miniMap">Map preview: {{ '%.5f'|format(rep.latitude) }}, {{ '%.5f'|format(rep.longitude) }}</div>
+      <p class="small" style="margin:8px 0 14px"><a href="{{ url_for('road_map', focus=rep.report_id) }}">Open on the Road Map</a></p>
+      {% endif %}
+      <dl class="kv">
+        <dt>Location</dt><dd>{{ rep.location or 'Not specified' }}</dd>
+        {% if rep.area or rep.city %}<dt>Area</dt><dd>{{ [rep.area, rep.city, rep.state]|select|join(', ') }}</dd>{% endif %}
+        {% if rep.road_name %}<dt>Road</dt><dd>{{ rep.road_name }}</dd>{% endif %}
+        {% if rep.landmark %}<dt>Landmark</dt><dd>{{ rep.landmark }}</dd>{% endif %}
+      </dl>
+    </div>
+
+    <div class="card">
+      <h2>Responsible authority</h2>
+      {% if rep.is_assigned %}
+      <dl class="kv">
+        <dt>Department</dt><dd>{{ rep.department or 'Not specified' }}</dd>
+        <dt>Assigned officer</dt><dd>{{ rep.officer_name or 'Not specified' }}{% if rep.officer_id %} <span class="muted">({{ rep.officer_id }})</span>{% endif %}</dd>
+        <dt>Assigned on</dt><dd>{{ rep.assigned_at|fmtday }}</dd>
+        <dt>Target resolution</dt><dd>{{ rep.target_at|fmtday }}</dd>
+        <dt>Current level</dt><dd>{{ rep.escalation_level_name }}</dd>
+      </dl>
+      {% else %}
+      <p style="margin-bottom:6px"><b>Assignment pending</b></p>
+      <p class="muted">The responsible authority has not been assigned yet. Target resolution: {{ rep.target_at|fmtday }}.</p>
+      {% endif %}
+      <p class="muted small" style="margin:10px 0 0">Prototype workflow: assignments are recorded inside RoadScan and are not sent to a real government system.</p>
+    </div>
+  </div>
+
+  <div class="card section-gap">
+    <h2>Evidence</h2>
+    <div class="two-imgs">
+      <div><p class="muted small" style="margin-bottom:6px">Photo from the citizen</p><img class="imgframe" src="{{ rep.image_path }}" alt="Photo submitted with the report"></div>
+      <div><p class="muted small" style="margin-bottom:6px">AI-annotated image</p><img class="imgframe" src="{{ rep.annotated_image_path }}" alt="Photo with detected damage outlined"></div>
+    </div>
+    {% if rep.description %}<p style="margin-top:14px"><b>What the citizen said:</b> {{ rep.description }}</p>{% endif %}
+    <div style="margin-top:8px">{% include "_ai_analysis.html" %}</div>
+  </div>
+
+  {% if rep.status == 'RESOLVED' %}
+  <div class="card section-gap" id="repair-evidence">
+    <h2>Repair evidence</h2>
+    <div class="two-imgs">
+      <div class="ba"><span class="tag">BEFORE</span><img class="imgframe" src="{{ rep.image_path }}" alt="Before repair"></div>
+      <div class="ba after"><span class="tag">AFTER</span>
+        {% if rep.resolution_image_path %}<img class="imgframe" src="{{ rep.resolution_image_path }}" alt="After repair">{% else %}<div class="empty-state">No after photo was recorded.</div>{% endif %}
+      </div>
+    </div>
+    <p style="margin-top:14px"><b>{{ rep.comparison.evidence_label if (rep.comparison and rep.comparison.evidence_label) else 'Repair evidence submitted' }}</b>
+      <span class="muted small"> This is photo evidence, not a certified inspection of the repair.</span></p>
+    {% if rep.resolution_notes %}<p><b>Repair notes:</b> {{ rep.resolution_notes }}</p>{% endif %}
+    <dl class="kv">
+      <dt>Resolution date</dt><dd>{{ (rep.resolution_date or rep.resolved_at)|fmtday }}</dd>
+      <dt>Resolved by</dt><dd>{{ rep.resolved_by or 'Not recorded' }}</dd>
+    </dl>
+    {% if rep.citizen_followup_path %}
+    <h3 style="margin-top:18px">Citizen follow-up</h3>
+    <img class="imgframe" style="max-width:340px" src="{{ rep.citizen_followup_path }}" alt="Photo added by the citizen after the repair">
+    {% endif %}
+    {% if can_confirm %}
+    <form action="{{ url_for('confirm_repair', report_id=rep.report_id) }}" method="post" enctype="multipart/form-data" style="margin-top:18px">
+      <label for="followup_image">Is the road really fixed? Add a photo to confirm <span class="muted">(+{{ cfg.POINTS.REPAIR_FOLLOWUP }} points)</span></label>
+      <input type="file" id="followup_image" name="followup_image" accept="image/jpeg,image/png">
+      <button class="btn secondary" style="margin-top:10px" type="submit">Confirm repair</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="section-gap">
+    {% if rep.status == 'RESOLVED' %}
+      <div class="reward-note">{% if resolved_reward %}+{{ cfg.POINTS.REPORT_RESOLVED }} points were awarded to the reporting citizen for a successful resolution.{% else %}This report was resolved.{% endif %}</div>
+    {% else %}
+      <div class="reward-note">Citizen reward: +{{ cfg.POINTS.REPORT_RESOLVED }} points when this report is successfully resolved.</div>
+    {% endif %}
+  </div>
+
+  {% if related %}
+  <div class="card section-gap">
+    <h2>Possible related reports</h2>
+    <p class="muted">These reports look like the same problem (same area, same kind of damage, nearby location). They are grouped for review, never merged or deleted.</p>
+    {% for r in related %}<p style="margin:4px 0"><a class="report-id" href="{{ url_for('report_detail', report_id=r.report_id) }}">{{ r.report_id }}</a> &middot; {{ r.detected_damage }} &middot; {{ status_pill(r) }}</p>{% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="card section-gap">
+    <h2>Activity</h2>
+    <ul class="audit">
+      {% for h in rep.status_history|reverse %}
+      <li><span class="t">{{ h.at|fmtdate }}</span>
+        <span><b>{{ h.event if h.event else status_labels.get(h.status, h.status) }}</b>{% if h.by %} <span class="muted">by {{ h.by }}</span>{% endif %}{% if h.note %}<br><span class="muted">{{ h.note }}</span>{% endif %}</span></li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="btn-row section-gap">
+    <a class="btn secondary" href="{{ url_for('track_report') }}">Track another report</a>
+    <a class="btn secondary" href="{{ url_for('my_reports') }}">My Reports</a>
+  </div>
+  <div class="disclaimer">RoadScan gives a visual, AI-assisted assessment. It is not a certified engineering inspection. Status updates in this prototype are recorded inside RoadScan only.</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if rep.latitude is not none and rep.longitude is not none %}
+<script>
+window.addEventListener('load', function () {
+  var el = document.getElementById('miniMap');
+  if (!window.L || !el) return;
+  el.textContent = '';
+  var m = L.map(el, {scrollWheelZoom: false}).setView([{{ rep.latitude }}, {{ rep.longitude }}], 16);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}).addTo(m);
+  L.circleMarker([{{ rep.latitude }}, {{ rep.longitude }}], {radius: 10, color: '#fff', weight: 3, fillColor: '{{ cfg.SEVERITY_COLORS.get(rep.severity_level or "NONE", "#8a97a3") }}', fillOpacity: 1}).addTo(m);
+});
+</script>
+{% endif %}
+{% endblock %}

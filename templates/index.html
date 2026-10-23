@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}RoadScan - Report road damage. Track repairs. Improve your community.{% endblock %}
+{% block content %}
+<section class="hero" style="margin-top:-28px">
+  <div class="hero-inner">
+    <div>
+      <h1>Report road damage. <span class="l2">Track repairs. Improve your community.</span></h1>
+      <p class="lede">Snap a photo of a pothole or crack. RoadScan checks the damage, pins it on the map and follows it until the road is repaired.</p>
+      <div class="btn-row">
+        <a class="btn lane big" href="{{ url_for('report_form') }}">Report Road Damage</a>
+        <a class="btn secondary big" href="{{ url_for('road_map') }}">Explore Road Damage Map</a>
+      </div>
+    </div>
+    <div class="hero-visual" aria-hidden="true">
+      <svg class="hero-road" viewBox="0 0 360 300">
+        <path d="M120 300L165 20h30l45 280z" fill="#26343f"/>
+        <path d="M180 34v22M180 78v30M180 132v40M180 196v52M180 270v30" stroke="#f4b400" stroke-width="7" stroke-linecap="round"/>
+        <path d="M165 20L120 300M195 20L240 300" stroke="#fff" stroke-width="3" opacity=".55"/>
+        <ellipse cx="205" cy="212" rx="24" ry="9" fill="#0e1720"/>
+        <g transform="translate(232 84)"><path d="M0 46S-28 22-28 2a28 28 0 0 1 56 0C28 22 0 46 0 46z" fill="#0a4f8f"/><circle cy="2" r="10" fill="#fff"/></g>
+        <g fill="#c9d2db"><rect x="20" y="248" width="70" height="8" rx="4"/><rect x="270" y="230" width="60" height="8" rx="4"/><rect x="40" y="90" width="50" height="8" rx="4"/></g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<section class="home-section">
+  <div class="container">
+    <h2>Three simple steps</h2>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><h3>Report</h3><p>Upload a photo and your location. It takes under a minute.</p></div>
+      <div class="step"><div class="num">2</div><h3>Verify</h3><p>RoadScan analyzes the visible damage and assigns a severity.</p></div>
+      <div class="step"><div class="num">3</div><h3>Track</h3><p>Follow the repair progress until the road is fixed.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="home-section">
+  <div class="container">
+    <h2>Community impact</h2>
+    <div class="impact">
+      <div><div class="n">{{ impact.reports|fmtnum }}</div><div class="l">Reports submitted</div></div>
+      <div><div class="n">{{ impact.resolved|fmtnum }}</div><div class="l">Issues resolved</div></div>
+      <div><div class="n">{{ impact.areas|fmtnum }}</div><div class="l">Areas monitored</div></div>
+    </div>
+    {% if impact.reports == 0 %}
+    <p class="muted" style="margin-top:14px">No reports yet. <a href="{{ url_for('report_form') }}">Be the first to report a damaged road.</a></p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="home-section">
+  <div class="container">
+    <div class="card flat" style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between">
+      <div><h3 style="margin:0">Already reported something?</h3><p class="muted" style="margin:0">Enter your Report ID to see where it stands.</p></div>
+      <form action="{{ url_for('track_report') }}" method="get" style="display:flex;gap:8px;flex:1 1 320px;max-width:460px">
+        <input type="text" name="report_id" placeholder="e.g. RS-2026-000002" aria-label="Report ID" required>
+        <button class="btn" type="submit">Track</button>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}

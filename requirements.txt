@@ -1,0 +1,15 @@
+# Core app (fallback detector active by default - no GPU/model download needed)
+Flask>=2.3
+opencv-python-headless>=4.8
+numpy>=1.24
+Pillow>=9.5
+reportlab>=4.0
+Jinja2>=3.1
+
+# Optional - only needed to activate the PRIMARY YOLOv7 detector.
+# See models/README.md before installing: also requires cloning the
+# WongKinYiu/yolov7 repo and placing two trained checkpoints.
+# torch>=2.0
+# torchvision>=0.15
+
+requests>=2.28   # optional: lets "Use My Location" fill in area/city/state

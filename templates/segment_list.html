@@ -1,0 +1,35 @@
+{% extends "authority_base.html" %}
+{% block title %}Road Segments &middot; Roadscan{% endblock %}
+{% block content %}
+<h1>Road Segments</h1>
+<p class="lede">
+  A road segment is identified, for this prototype, by its road name (or location text) plus
+  area/city &mdash; a clear, deterministic grouping method, not real GIS segmentation.
+  Segments with more than one inspection/report show a health history.
+</p>
+
+{% if segments %}
+<div class="card section-gap">
+  <table>
+    <tr><th>Road</th><th>Area</th><th>Inspections</th><th>Current Health</th><th>Last Inspected</th><th></th></tr>
+    {% for s in segments %}
+    <tr>
+      <td>{{ s.road_label }}</td>
+      <td>{{ s.area_label or '—' }}</td>
+      <td>{{ s.inspections }}</td>
+      <td>{{ s.current_health }}</td>
+      <td class="muted">{{ s.last_inspected | fmtdate }}</td>
+      <td><a href="{{ url_for('road_segment_profile', segment_id=s.segment_id) }}">View &rarr;</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% else %}
+<div class="card section-gap">
+  <div class="empty-state">
+    No road segments identified yet. Fill in Road Name (and Area/City) on Inspect Road or
+    Report Road Damage to start tracking a segment's health over time.
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "authority_base.html" %}
+{% block title %}Comparison results &middot; Roadscan{% endblock %}
+{% block content %}
+<h1>Repair comparison: {{ result.verdict }}</h1>
+<p class="lede">{{ result.explanation }}</p>
+{% if not result.reliable %}
+<div class="disclaimer">This comparison is not being used to claim a repair outcome &mdash; see explanation above.</div>
+{% else %}
+<div class="grid-3 section-gap">
+  <div class="card"><div class="muted">Before Health Score</div><div class="gauge-score">{{ before_health.score }}</div></div>
+  <div class="card"><div class="muted">After Health Score</div><div class="gauge-score">{{ after_health.score }}</div></div>
+  <div class="card"><div class="muted">Change</div><div class="gauge-score">{{ "%+.1f"|format(result.health_delta) }}</div></div>
+</div>
+{% endif %}
+
+<div class="two-imgs section-gap">
+  <div class="card">
+    <h2>Before</h2>
+    <img class="imgframe" src="{{ before_url }}" alt="Before repair">
+    <table style="margin-top:12px;">
+      <tr><td class="muted">Health score</td><td>{{ before_health.score }} &middot; {{ before_health.condition }}</td></tr>
+      <tr><td class="muted">Damages</td><td>{{ before_count }}</td></tr>
+      <tr><td class="muted">Priority</td><td><span class="pill {{ before_priority.level|lower }}">{{ before_priority.level }}</span></td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h2>After</h2>
+    <img class="imgframe" src="{{ after_url }}" alt="After repair">
+    <table style="margin-top:12px;">
+      <tr><td class="muted">Health score</td><td>{{ after_health.score }} &middot; {{ after_health.condition }}</td></tr>
+      <tr><td class="muted">Damages</td><td>{{ after_count }}</td></tr>
+      <tr><td class="muted">Priority</td><td><span class="pill {{ after_priority.level|lower }}">{{ after_priority.level }}</span></td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="card section-gap">
+  <h2>Numeric comparison</h2>
+  <table>
+    <tr><th></th><th>Change</th></tr>
+    <tr><td class="muted">Road Health Score</td><td>{{ result.health_delta }}</td></tr>
+    <tr><td class="muted">Damage count</td><td>{{ result.count_delta }}</td></tr>
+    <tr><td class="muted">Estimated damaged area</td><td>{{ (result.area_delta*100)|round(2) }}%</td></tr>
+    <tr><td class="muted">Scene similarity</td><td>{{ (result.scene_similarity*100)|round(0) }}%</td></tr>
+  </table>
+  {% if result.low_confidence_comparison %}
+  <p class="muted" style="margin-top:10px;">&#9888; The two photos look noticeably different in overall scene appearance &mdash; treat this comparison with caution.</p>
+  {% endif %}
+</div>
+{% endblock %}

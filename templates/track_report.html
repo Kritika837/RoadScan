@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sev_pill, status_pill, road_tracker %}
+{% block title %}Track a report - RoadScan{% endblock %}
+{% block content %}
+<div class="container narrow">
+  <h1 style="font-size:clamp(1.7rem,4vw,2.3rem)">Where is my report?</h1>
+  <p class="lede">Enter the Report ID you received when you submitted, for example RS-2026-000002.</p>
+  <form action="{{ url_for('track_report') }}" method="post" class="card" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+    <div style="flex:1 1 240px"><label for="report_id" style="margin-top:0">Report ID</label>
+      <input type="text" id="report_id" name="report_id" placeholder="RS-2026-000002" value="{{ searched_id or '' }}" autocomplete="off" required></div>
+    <button class="btn" type="submit">Track report</button>
+  </form>
+
+  {% if rep %}
+  <div class="card section-gap">
+    <div class="report-head" style="margin-bottom:14px">
+      <div><div class="muted small">Report</div><h2 class="report-id" style="margin:0">{{ rep.report_id }}</h2></div>
+      <div>{{ status_pill(rep, true) }}</div>
+    </div>
+    {{ road_tracker(timeline, rep.is_overdue()) }}
+    {% if rep.is_overdue() %}<div class="banner danger" style="margin-top:14px"><b>Resolution target exceeded.</b> Escalation required.</div>{% endif %}
+    <dl class="kv" style="margin-top:18px">
+      <dt>Location</dt><dd>{{ rep.location }}</dd>
+      <dt>Damage</dt><dd>{{ rep.detected_damage }}</dd>
+      <dt>Severity</dt><dd>{{ sev_pill(rep.severity_level) }}</dd>
+      <dt>Responsible department</dt><dd>{{ rep.department or 'Assignment pending' }}</dd>
+      <dt>Assigned officer</dt><dd>{{ rep.officer_name or 'Not assigned yet' }}</dd>
+      <dt>Days elapsed</dt><dd>{{ rep.days_elapsed }}</dd>
+      <dt>Target resolution</dt><dd>{{ rep.target_at|fmtday }}</dd>
+      <dt>Current status</dt><dd>{{ rep.display_status_label }}</dd>
+    </dl>
+    <div class="btn-row" style="margin-top:16px"><a class="btn" href="{{ url_for('report_detail', report_id=rep.report_id) }}">View full report</a></div>
+  </div>
+  {% else %}
+  <p class="muted" style="margin-top:18px">Don't have a Report ID? Look in <a href="{{ url_for('my_reports') }}">My Reports</a>, or <a href="{{ url_for('report_form') }}">report road damage</a> to get one.</p>
+  {% endif %}
+</div>
+{% endblock %}

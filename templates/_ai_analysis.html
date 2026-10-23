@@ -1,0 +1,31 @@
+{# Progressive disclosure of the technical side. Shown only when the citizen opens it. #}
+<details class="ai">
+  <summary>View AI analysis</summary>
+  <div style="padding:6px 0 0 20px">
+    {% if rep.detections %}
+    <div class="table-wrap"><table>
+      <tr><th>AI detected</th><th>Confidence</th><th>Severity</th><th>Affected area of photo</th></tr>
+      {% for d in rep.detections %}
+      <tr>
+        <td>{{ d.class_name }}</td>
+        <td>{{ (d.confidence * 100)|round(0)|int }}%</td>
+        <td><span class="pill {{ d.severity|lower }}">{{ d.severity|title }}</span></td>
+        <td>{% if d.area_ratio is defined %}{{ (d.area_ratio * 100)|round(1) }}%{% else %}<span class="muted">-</span>{% endif %}</td>
+      </tr>
+      {% if d.reason %}<tr><td colspan="4" class="muted small" style="padding-top:0">{{ d.reason }}</td></tr>{% endif %}
+      {% endfor %}
+    </table></div>
+    {% else %}
+    <p class="muted">The AI did not clearly detect road damage in this photo.</p>
+    {% endif %}
+    {% if rep.priority_reason %}<p style="margin-top:10px"><b>Why this priority:</b> {{ rep.priority_reason }}</p>{% endif %}
+    <p class="muted small">The damage type and its position in the photo come from an AI detector. Severity, Road Health and Repair Priority are rule-based estimates that support a decision. They are not an engineering inspection or an official pavement rating.</p>
+    {% if rep.pdf_report_path or rep.html_report_path or rep.json_report_path %}
+    <div class="btn-row" style="margin-top:8px">
+      {% if rep.pdf_report_path %}<a class="btn secondary small" href="{{ rep.pdf_report_path }}">Download PDF report</a>{% endif %}
+      {% if rep.html_report_path %}<a class="btn secondary small" href="{{ rep.html_report_path }}">View HTML report</a>{% endif %}
+      {% if rep.json_report_path %}<a class="btn secondary small" href="{{ rep.json_report_path }}">Download JSON</a>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</details>

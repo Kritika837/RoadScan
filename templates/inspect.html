@@ -1,0 +1,30 @@
+{% extends "authority_base.html" %}
+{% block title %}Inspect a road photo{% endblock %}
+{% block content %}
+<h1 style="font-size:1.9rem">Inspect a road photo</h1>
+<p class="lede">Technical single-image inspection for authority staff. It runs the full detection, severity, Road Health and priority pipeline and produces a PDF, HTML and JSON report. It does not create a citizen report.</p>
+<div class="grid-2 section-gap">
+  <div class="card">
+    <form action="{{ url_for('analyze') }}" method="post" enctype="multipart/form-data">
+      <label for="image" style="margin-top:0">Road photo</label>
+      <input type="file" id="image" name="image" accept="image/*" required>
+      <label for="location">Location <span class="muted">(optional, enables history tracking)</span></label>
+      <input type="text" id="location" name="location" placeholder="e.g. Main St &amp; 5th Ave, mile marker 12">
+      {% include "_location_fields.html" %}
+      <label for="confidence">Confidence threshold: <span id="confVal">0%</span></label>
+      <input type="range" id="confidence" name="confidence" min="0" max="90" value="0" step="5" oninput="document.getElementById('confVal').textContent = this.value + '%'">
+      <p class="muted small">Hides detections below this confidence. Leave at 0% to see everything the detector found.</p>
+      <button type="submit" class="btn" style="margin-top:12px">Analyze</button>
+    </form>
+  </div>
+  <div class="card"><h2>What you get</h2>
+    <ul class="muted" style="padding-left:18px;line-height:1.9">
+      <li>Damage type, confidence and region per finding</li>
+      <li>Severity with the reasoning behind it</li>
+      <li>Road Health Score (0 to 100) with a per-class penalty breakdown</li>
+      <li>Repair priority with reason and recommended action</li>
+      <li>Downloadable PDF / HTML / JSON inspection report</li>
+    </ul>
+  </div>
+</div>
+{% endblock %}

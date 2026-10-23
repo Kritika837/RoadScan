@@ -1,0 +1,186 @@
+{% extends layout %}
+{% block title %}Road Map - RoadScan{% endblock %}
+{% block head_extra %}{% include "_leaflet.html" %}{% endblock %}
+{% block content %}
+<div class="container">
+  <h1 style="font-size:clamp(1.7rem,4vw,2.3rem)">Road Map</h1>
+  <p class="lede" style="margin-bottom:16px">Every marker is a real report with a saved location. Zoom in from India down to a single street.</p>
+
+  <div class="filters" id="filters">
+    <div class="search"><label for="fq">Search area</label><input type="search" id="fq" placeholder="e.g. Phagwara, Jalandhar, Ludhiana"></div>
+    <div><label for="fsev">Severity</label><select id="fsev"><option value="">All</option><option value="LOW">Low</option><option value="MODERATE">Moderate</option><option value="HIGH">High</option><option value="CRITICAL">Critical</option></select></div>
+    <div><label for="fstatus">Status</label><select id="fstatus"><option value="">All</option>
+      <option value="REPORTED">Reported</option><option value="UNDER_REVIEW">Under Review</option><option value="ASSIGNED">Assigned</option><option value="IN_PROGRESS">In Progress</option><option value="RESOLVED">Resolved</option><option value="ESCALATION_REQUIRED">Escalation Required</option></select></div>
+    <div><label for="fdmg">Damage</label><select id="fdmg"><option value="">All</option>{% for d in cfg.DAMAGE_TYPES %}<option>{{ d }}</option>{% endfor %}</select></div>
+    <div><label for="fdays">Time</label><select id="fdays"><option value="">All</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="180">Last 6 months</option></select></div>
+  </div>
+  {% if authority %}<label style="margin:0 0 10px;font-weight:600"><input type="checkbox" id="finsp"> Include inspection records (no report ID)</label>{% endif %}
+
+  <div class="map-layout">
+    <div>
+      <div class="map-wrap">
+        <div id="map" role="region" aria-label="Map of reported road damage"></div>
+        <div class="zoom-chip" id="zoomChip">India</div>
+        <div class="map-empty" id="mapEmpty"><div id="mapEmptyText"></div></div>
+      </div>
+      <div class="legend" aria-label="Severity colours">
+        <span><span class="sev-dot low"></span>Low</span><span><span class="sev-dot moderate"></span>Moderate</span>
+        <span><span class="sev-dot high"></span>High</span><span><span class="sev-dot critical"></span>Critical</span>
+        <span><span class="sev-dot"></span>Not rated</span>
+      </div>
+    </div>
+    <aside class="card area-panel" id="areaPanel" aria-live="polite">
+      <h2 id="apTitle" style="margin-bottom:2px">India</h2>
+      <div class="muted small" id="apSub" style="margin-bottom:10px">Reports in the current map view</div>
+      <div class="stat-line"><span>Road reports</span><b id="apTotal">0</b></div>
+      <div class="stat-line"><span>Open reports</span><b id="apOpen">0</b></div>
+      <div class="stat-line"><span>Resolved</span><b id="apResolved">0</b></div>
+      <div class="stat-line"><span>High / Critical</span><b id="apHigh">0</b></div>
+      <div class="stat-line"><span>Average road health</span><b id="apHealth">-</b></div>
+      <h3 style="margin:16px 0 4px">Nearby reports</h3>
+      <ul class="nearby" id="apNearby"></ul>
+      <a class="small" id="apMore" href="#" style="display:none">View area details</a>
+    </aside>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+window.addEventListener('load', function () {
+  var AUTHORITY = {{ 'true' if authority else 'false' }}, FOCUS = {{ focus|tojson }};
+  var COLORS = {{ cfg.SEVERITY_COLORS|tojson }}, ORDER = {{ cfg.SEVERITY_ORDER|tojson }};
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+  var mapEl = $('map');
+  if (!window.L) { mapEl.innerHTML = '<div style="padding:24px"><b>The map could not load.</b><br>Check your internet connection and refresh the page.</div>'; return; }
+
+  var INDIA = [[6.5, 68.0], [35.8, 97.6]];
+  var map = L.map(mapEl, {minZoom: 3, worldCopyJump: true}).fitBounds(INDIA);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}).addTo(map);
+  var layer = L.layerGroup().addTo(map), POINTS = [], markerById = {}, first = true, lastQ = '';
+
+  function sevRank(s) { return Math.max(0, ORDER.indexOf(s || 'NONE')); }
+  function worst(list) { return list.reduce(function (a, p) { return sevRank(p.severity) > sevRank(a) ? p.severity : a; }, 'NONE'); }
+  function popup(p) {
+    var link = AUTHORITY && p.kind === 'report' ? '/authority/reports/' + encodeURIComponent(p.id) : p.url;
+    return '<div class="pop"><h3>' + esc(p.id) + '</h3><dl>' +
+      '<dt>Damage</dt><dd>' + esc(p.damage) + '</dd>' +
+      '<dt>Severity</dt><dd>' + (p.severity !== 'NONE' ? '<span class="pill ' + p.severity.toLowerCase() + '">' + esc(p.severity.charAt(0) + p.severity.slice(1).toLowerCase()) + '</span>' : 'Not rated') + '</dd>' +
+      '<dt>Road Health</dt><dd>' + (p.health != null ? esc(p.health) + ' / 100' : '-') + '</dd>' +
+      '<dt>Status</dt><dd>' + esc(p.status_label) + '</dd>' +
+      '<dt>Location</dt><dd>' + esc(p.location) + '</dd>' +
+      '<dt>Submitted</dt><dd>' + esc(p.created) + '</dd></dl>' +
+      (link ? '<a class="btn small" href="' + esc(link) + '">View Report</a>' : '') + '</div>';
+  }
+
+  function levelName(z) { return z <= 5 ? 'India' : z <= 7 ? 'State level' : z <= 10 ? 'City / district' : z <= 13 ? 'Local area' : 'Street level'; }
+
+  function render() {
+    layer.clearLayers(); markerById = {};
+    var z = map.getZoom(), cell = 54, cells = {};
+    $('zoomChip').textContent = levelName(z);
+    POINTS.forEach(function (p) {
+      var key;
+      if (z >= 16) key = 'id:' + p.id; else { var pt = map.project([p.lat, p.lon], z); key = Math.floor(pt.x / cell) + ':' + Math.floor(pt.y / cell); }
+      (cells[key] = cells[key] || []).push(p);
+    });
+    Object.keys(cells).forEach(function (k) {
+      var g = cells[k];
+      if (g.length === 1) {
+        var p = g[0];
+        var m = L.circleMarker([p.lat, p.lon], {radius: z < 9 ? 7 : 10, color: '#fff', weight: 2.5, fillColor: p.color, fillOpacity: 1}).bindPopup(popup(p), {maxWidth: 300});
+        m.addTo(layer); markerById[p.id] = m;
+      } else {
+        var lat = g.reduce(function (a, p) { return a + p.lat; }, 0) / g.length, lon = g.reduce(function (a, p) { return a + p.lon; }, 0) / g.length;
+        var sev = worst(g), dark = sev === 'MODERATE';
+        var icon = L.divIcon({className: '', iconSize: [38, 38], html: '<div class="cluster' + (dark ? ' dark-text' : '') + '" style="background:' + COLORS[sev] + '">' + g.length + '</div>'});
+        L.marker([lat, lon], {icon: icon, title: g.length + ' reports'}).on('click', function () {
+          map.fitBounds(L.latLngBounds(g.map(function (p) { return [p.lat, p.lon]; })), {padding: [50, 50], maxZoom: 17});
+        }).addTo(layer);
+      }
+    });
+    updatePanel();
+  }
+
+  function updatePanel() {
+    var b = map.getBounds(), z = map.getZoom();
+    var vis = POINTS.filter(function (p) { return b.contains([p.lat, p.lon]); });
+    var reps = vis.filter(function (p) { return p.kind === 'report'; });
+    var q = $('fq').value.trim();
+    $('apTotal').textContent = reps.length;
+    $('apOpen').textContent = reps.filter(function (p) { return p.status !== 'RESOLVED'; }).length;
+    $('apResolved').textContent = reps.filter(function (p) { return p.status === 'RESOLVED'; }).length;
+    $('apHigh').textContent = reps.filter(function (p) { return p.severity === 'HIGH' || p.severity === 'CRITICAL'; }).length;
+    var hs = reps.filter(function (p) { return p.health != null; });
+    $('apHealth').textContent = hs.length ? (hs.reduce(function (a, p) { return a + p.health; }, 0) / hs.length).toFixed(1) : '-';
+
+    var title = z <= 5 ? 'India' : 'Map view', key = null, counts = {};
+    reps.forEach(function (p) { if (p.city) { counts[p.city] = (counts[p.city] || 0) + 1; } });
+    var top = Object.keys(counts).sort(function (a, c) { return counts[c] - counts[a]; })[0];
+    if (top && counts[top] / reps.length >= 0.5 && z > 5) {
+      title = top;
+      var hit = reps.filter(function (p) { return p.city === top && p.area_key; })[0];
+      var keys = {}; reps.filter(function (p) { return p.city === top && p.area_key; }).forEach(function (p) { keys[p.area_key] = 1; });
+      if (Object.keys(keys).length === 1 && hit) key = hit.area_key;
+    }
+    if (q && z > 5) title = q.replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+    $('apTitle').textContent = title;
+    $('apSub').textContent = z <= 5 ? 'Reports across the map' : 'Reports in the current map view';
+    var more = $('apMore'); more.style.display = key ? 'inline' : 'none'; if (key) more.href = '/area-health/' + encodeURIComponent(key);
+
+    var near = reps.slice().sort(function (a, c) { return sevRank(c.severity) - sevRank(a.severity) || c.created_ts - a.created_ts; }).slice(0, 5);
+    $('apNearby').innerHTML = near.length ? near.map(function (p) {
+      var href = AUTHORITY ? '/authority/reports/' + encodeURIComponent(p.id) : p.url;
+      return '<li><span class="sev-dot ' + p.severity.toLowerCase() + '"></span><a href="' + esc(href) + '"><b class="report-id">' + esc(p.id) + '</b></a><br><span class="muted">' + esc(p.damage) + ' &middot; ' + esc(p.location) + '</span></li>';
+    }).join('') : '<li class="muted">No reports in view.</li>';
+  }
+
+  function fit() {
+    if (!POINTS.length) { map.fitBounds(INDIA); return; }
+    if (POINTS.length === 1) { map.setView([POINTS[0].lat, POINTS[0].lon], 15); return; }
+    map.fitBounds(L.latLngBounds(POINTS.map(function (p) { return [p.lat, p.lon]; })), {padding: [40, 40], maxZoom: 15});
+  }
+
+  function params() {
+    var u = new URLSearchParams();
+    [['q', 'fq'], ['severity', 'fsev'], ['status', 'fstatus'], ['damage', 'fdmg'], ['days', 'fdays']].forEach(function (x) { var v = $(x[1]).value.trim(); if (v) u.set(x[0], v); });
+    if (AUTHORITY && $('finsp') && $('finsp').checked) u.set('inspections', '1');
+    return u;
+  }
+
+  function load(refit) {
+    var u = params();
+    fetch('/api/map-points?' + u.toString()).then(function (r) { return r.json(); }).then(function (d) {
+      POINTS = d.points || [];
+      var filtered = Array.from(u.keys()).some(function (k) { return k !== 'inspections'; });
+      var empty = $('mapEmpty');
+      if (!POINTS.length) {
+        $('mapEmptyText').innerHTML = filtered ? '<b>No reports match these filters.</b><br><span class="muted">Try clearing a filter or searching a nearby area.</span>'
+          : '<b>No reports on the map yet.</b><br><span class="muted">Reports appear here once someone shares a location.</span><br><a class="btn small" style="margin-top:8px" href="/report">Report Road Damage</a>';
+        empty.style.display = 'grid';
+      } else { empty.style.display = 'none'; }
+      var qNow = u.get('q') || '';
+      if (first) {
+        // Start on India; only jump closer when opened from a specific report.
+        var f = FOCUS ? POINTS.filter(function (p) { return p.id === FOCUS; })[0] : null;
+        if (f) map.setView([f.lat, f.lon], 17);
+      } else if (refit) {
+        if (qNow) fit(); else if (lastQ) map.fitBounds(INDIA);
+      }
+      lastQ = qNow;
+      render();
+      if (first && FOCUS && markerById[FOCUS]) markerById[FOCUS].openPopup();
+      first = false;
+    }).catch(function () { $('mapEmptyText').innerHTML = '<b>Couldn\u2019t load reports.</b><br>Please refresh the page.'; $('mapEmpty').style.display = 'grid'; });
+  }
+
+  var t = null;
+  ['fsev', 'fstatus', 'fdmg', 'fdays', 'finsp'].forEach(function (id) { var el = $(id); if (el) el.addEventListener('change', function () { load(true); }); });
+  $('fq').addEventListener('input', function () { clearTimeout(t); t = setTimeout(function () { load(true); }, 350); });
+  $('fq').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(t); load(true); } });
+  map.on('zoomend', render); map.on('moveend', updatePanel);
+  load(false);
+});
+</script>
+{% endblock %}

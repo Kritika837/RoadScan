@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{% block title %}Authority{% endblock %} - RoadScan Authority</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2317232f'/%3E%3Cpath d='M16 5v4M16 12v4M16 19v4M16 26v1' stroke='%23f4b400' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block head_extra %}{% endblock %}
+</head>
+<body class="authority">
+  <header class="auth-top">
+    <div class="top-inner">
+      <a class="brand" href="{{ url_for('authority.dashboard') }}">RoadScan <small>Authority</small></a>
+      {% set ep = request.endpoint or '' %}
+      <nav class="main-nav" aria-label="Authority">
+        <a href="{{ url_for('authority.dashboard') }}" class="{{ 'active' if ep == 'authority.dashboard' }}">Dashboard</a>
+        <a href="{{ url_for('authority.reports') }}" class="{{ 'active' if ep in ['authority.reports','authority.manage'] }}">Reports</a>
+        <a href="{{ url_for('authority.authority_map') }}" class="{{ 'active' if ep == 'authority.authority_map' }}">Map</a>
+        <a href="{{ url_for('authority.escalations') }}" class="{{ 'active' if ep == 'authority.escalations' }}">Escalations</a>
+        <a href="{{ url_for('authority.assigned') }}" class="{{ 'active' if ep == 'authority.assigned' }}">Assigned Work</a>
+        <a href="{{ url_for('authority.resolved') }}" class="{{ 'active' if ep == 'authority.resolved' }}">Resolved</a>
+        <a href="{{ url_for('authority.analytics') }}" class="{{ 'active' if ep in ['authority.analytics','authority.inspect','history_list','history_detail','compare_page','segment_list','road_segment_profile','area_health_list','duplicate_group_detail','analyze'] }}">Analytics</a>
+      </nav>
+      <div class="auth-user">{{ auth.name if auth else '' }}{% if auth and not auth.get('open_mode') %} <a href="{{ url_for('authority.logout') }}">Sign out</a>{% else %} <a href="{{ url_for('authority.login') }}">Set name</a>{% endif %} <a href="{{ url_for('index') }}">Citizen site</a></div>
+    </div>
+  </header>
+  <div class="flash-wrap">
+    {% if auth and auth.get('open_mode') %}<div class="flash" style="background:var(--warn-tint);border-color:#ecd196;color:#6b4a0c">Prototype mode: no authority sign-in is required, so anyone with this link can act as an authority. Set <code>ROADSCAN_AUTHORITY_KEY</code> to require an access key. Nothing here is connected to a real government system.</div>{% endif %}
+    {% if not detector_is_primary %}<div class="flash" style="background:var(--warn-tint);border-color:#ecd196;color:#6b4a0c"><b>Fallback detector active:</b> {{ detector_message }}</div>{% endif %}
+    {% with messages = get_flashed_messages() %}{% for m in messages %}<div class="flash" role="status">{{ m }}</div>{% endfor %}{% endwith %}
+  </div>
+  <main><div class="container">{% block content %}{% endblock %}</div></main>
+  <footer class="site"><div class="container"><div>Detection backend: <b>{{ detector_name }}</b>. Severity, Road Health and priority are rule-based decision-support values, not an engineering certification.</div></div></footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

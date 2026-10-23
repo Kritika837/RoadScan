@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block title %}Report Road Damage - RoadScan{% endblock %}
+{% block head_extra %}<noscript><style>.loc-fields{display:block}</style></noscript>{% endblock %}
+{% block content %}
+<div class="container">
+<div class="flow">
+  <h1 style="font-size:clamp(1.7rem,4vw,2.3rem)">Report road damage</h1>
+  <p class="lede" style="margin-bottom:22px">Four quick steps. You'll get a Report ID you can use to follow the repair.</p>
+
+  <form id="reportForm" action="{{ url_for('report_submit') }}" method="post" enctype="multipart/form-data" novalidate>
+
+    <section class="flow-step" id="stepPhoto">
+      <h2><span class="num">1</span> Upload a photo of the road damage</h2>
+      <label class="dropzone" id="dropzone" for="image">
+        {{ icon('camera') }}
+        <div class="big">Tap to take or choose a photo</div>
+        <div class="muted small">or drag and drop it here &middot; JPG or PNG</div>
+        <input type="file" id="image" name="image" accept="image/jpeg,image/png">
+      </label>
+      <div class="preview" id="preview">
+        <img id="previewImg" alt="Preview of your photo">
+        <label class="btn secondary small change" for="image" style="margin:0">Change photo</label>
+      </div>
+      <div class="field-hint">Stand a few steps back so the damage and the road around it are visible.</div>
+    </section>
+
+    <section class="flow-step" id="stepLocation">
+      <h2><span class="num">2</span> Where is it?</h2>
+      <div class="choice">
+        <button type="button" id="btnGps">{{ icon('pin') }}Use My Location</button>
+        <button type="button" id="btnManual">{{ icon('pencil') }}Enter Location Manually</button>
+      </div>
+      <div class="loc-chip" id="locChip" role="status"><span id="locChipText"></span></div>
+
+      <input type="hidden" id="latitude" name="latitude">
+      <input type="hidden" id="longitude" name="longitude">
+
+      <div class="loc-fields" id="locFields">
+        <label for="location">Location <span class="muted">(street, landmark or area)</span></label>
+        <input type="text" id="location" name="location" placeholder="e.g. Front gate of LPU, Phagwara" autocomplete="off">
+        <details class="more" id="locMore">
+          <summary>Add more location details</summary>
+          <div class="grid-2">
+            <div><label for="area">Area</label><input type="text" id="area" name="area" placeholder="e.g. Model Town"></div>
+            <div><label for="city">City</label><input type="text" id="city" name="city" placeholder="e.g. Phagwara"></div>
+          </div>
+          <div class="grid-2">
+            <div><label for="state">State</label><input type="text" id="state" name="state" placeholder="e.g. Punjab"></div>
+            <div><label for="road_name">Road name</label><input type="text" id="road_name" name="road_name" placeholder="e.g. GT Road"></div>
+          </div>
+          <label for="landmark">Nearby landmark</label>
+          <input type="text" id="landmark" name="landmark" placeholder="e.g. opposite the bus stand">
+        </details>
+      </div>
+    </section>
+
+    <section class="flow-step" id="stepDescribe">
+      <h2><span class="num">3</span> What is happening here? <span class="muted small" style="font-weight:600">(optional)</span></h2>
+      <textarea id="description" name="description" rows="3" maxlength="1000" placeholder="e.g. The pothole gets worse after rain."></textarea>
+      <div class="examples" aria-label="Examples">
+        <button type="button" data-fill="The pothole gets worse after rain.">Pothole gets worse after rain</button>
+        <button type="button" data-fill="Large cracks near the road divider.">Large cracks near the divider</button>
+        <button type="button" data-fill="The road surface has collapsed.">Road surface has collapsed</button>
+      </div>
+      {% if not (cz and cz.name) %}
+      <label for="reporter_name">Your name <span class="muted">(optional &mdash; shown on your rewards and certificate)</span></label>
+      <input type="text" id="reporter_name" name="reporter_name" maxlength="60" autocomplete="name" placeholder="e.g. Kritika">
+      {% endif %}
+    </section>
+
+    <section class="flow-step" id="stepSubmit">
+      <h2><span class="num">4</span> Send your report</h2>
+      <div id="formError" class="banner danger" style="display:none;margin-bottom:12px" role="alert"></div>
+      <button type="submit" class="btn lane big block" id="submitBtn"><span class="spinner"></span><span id="submitText">Analyze &amp; Submit Report</span></button>
+      <p class="field-hint center" style="margin-top:12px">RoadScan analyzes the photo and creates your report in a few seconds. This is a prototype service and is not yet connected to a real authority.</p>
+    </section>
+  </form>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var input = $('image'), drop = $('dropzone'), preview = $('preview'), img = $('previewImg');
+  var btnGps = $('btnGps'), btnManual = $('btnManual'), chip = $('locChip'), chipText = $('locChipText');
+  var fields = $('locFields'), more = $('locMore'), form = $('reportForm'), errBox = $('formError');
+  var lat = $('latitude'), lon = $('longitude'), loc = $('location'), area = $('area'), city = $('city'), state = $('state');
+  var prepared = true;
+
+  function showError(msg, el) { errBox.textContent = msg; errBox.style.display = 'block'; (el || errBox).scrollIntoView({behavior: 'smooth', block: 'center'}); }
+  function clearError() { errBox.style.display = 'none'; }
+  function markDone(stepId, on) { $(stepId).classList.toggle('done', !!on); }
+
+  /* ---- Step 1: photo, preview, and a light downscale so uploads are quick on mobile ---- */
+  function setFile(file) {
+    if (!file) return;
+    if (!/^image\/(jpeg|png)$/.test(file.type)) { showError('Please choose a JPG or PNG photo.', $('stepPhoto')); return; }
+    clearError();
+    img.src = URL.createObjectURL(file);
+    preview.style.display = 'block'; drop.style.display = 'none'; markDone('stepPhoto', true);
+    if (file.size > 1500000) shrink(file);
+  }
+  function shrink(file) {
+    prepared = false;
+    var im = new Image();
+    im.onload = function () {
+      try {
+        var max = 1800, s = Math.min(1, max / Math.max(im.width, im.height));
+        var c = document.createElement('canvas'); c.width = Math.round(im.width * s); c.height = Math.round(im.height * s);
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+        c.toBlob(function (blob) {
+          try {
+            if (blob && blob.size < file.size) {
+              var dt = new DataTransfer();
+              dt.items.add(new File([blob], (file.name || 'photo').replace(/\.\w+$/, '') + '.jpg', {type: 'image/jpeg'}));
+              input.files = dt.files;
+            }
+          } catch (e) { /* keep the original file */ }
+          prepared = true;
+        }, 'image/jpeg', 0.86);
+      } catch (e) { prepared = true; }
+    };
+    im.onerror = function () { prepared = true; };
+    im.src = URL.createObjectURL(file);
+  }
+  input.addEventListener('change', function () { if (input.files && input.files[0]) setFile(input.files[0]); });
+  ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('drag'); }); });
+  ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('drag'); }); });
+  drop.addEventListener('drop', function (e) {
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) { try { var dt = new DataTransfer(); dt.items.add(f); input.files = dt.files; } catch (x) {} setFile(f); }
+  });
+
+  /* ---- Step 2: location ---- */
+  function chipShow(text, warn) { chip.style.display = 'flex'; chip.classList.toggle('warn', !!warn); chipText.textContent = text; }
+  function manualMode() {
+    btnManual.classList.add('on'); btnGps.classList.remove('on');
+    fields.style.display = 'block'; more.open = true; loc.focus({preventScroll: true});
+  }
+  btnManual.addEventListener('click', manualMode);
+
+  btnGps.addEventListener('click', function () {
+    btnGps.classList.add('on'); btnManual.classList.remove('on'); clearError();
+    if (!('geolocation' in navigator)) { chipShow('Location isn\u2019t available on this device. Please enter it manually.', true); manualMode(); return; }
+    chipShow('Finding your location\u2026');
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      lat.value = pos.coords.latitude.toFixed(6); lon.value = pos.coords.longitude.toFixed(6);
+      fields.style.display = 'block'; more.open = false; markDone('stepLocation', true);
+      chipShow('Location captured. Looking up the area name\u2026');
+      fetch('/api/reverse-geocode?lat=' + encodeURIComponent(lat.value) + '&lon=' + encodeURIComponent(lon.value))
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.ok) {
+            if (!area.value && d.area) area.value = d.area;
+            if (!city.value && d.city) city.value = d.city;
+            if (!state.value && d.state) state.value = d.state;
+            if (!loc.value) loc.value = [d.area, d.city].filter(Boolean).join(', ');
+            chipShow('Location found: ' + ([d.area, d.city, d.state].filter(Boolean).join(', ') || 'GPS position saved') + '. Edit below if it\u2019s not quite right.');
+          } else { chipShow('Location captured. Add a street or landmark below so people can find it.'); }
+        })
+        .catch(function () { chipShow('Location captured. Add a street or landmark below so people can find it.'); });
+    }, function (err) {
+      var why = err && err.code === 1 ? 'Location permission was denied.' : 'We couldn\u2019t get your location.';
+      chipShow(why + ' Please enter it manually.', true); manualMode();
+    }, {enableHighAccuracy: true, timeout: 10000});
+  });
+  loc.addEventListener('input', function () { markDone('stepLocation', loc.value.trim() || lat.value); });
+
+  /* ---- Step 3: example chips ---- */
+  document.querySelectorAll('.examples button').forEach(function (b) {
+    b.addEventListener('click', function () { $('description').value = b.getAttribute('data-fill'); $('description').focus(); });
+  });
+
+  /* ---- Step 4: validate, then submit ---- */
+  form.addEventListener('submit', function (e) {
+    clearError();
+    if (!input.files || !input.files[0]) { e.preventDefault(); showError('Please add a photo of the road damage first.', $('stepPhoto')); return; }
+    if (!lat.value && !loc.value.trim() && !area.value.trim() && !city.value.trim()) {
+      e.preventDefault(); showError('Please tell us where this is: use your location or type it in.', $('stepLocation')); return;
+    }
+    if (!prepared) { e.preventDefault(); setTimeout(function () { form.requestSubmit ? form.requestSubmit() : form.submit(); }, 400); return; }
+    var b = $('submitBtn'); b.classList.add('loading'); $('submitText').textContent = 'Analyzing your photo\u2026';
+    setTimeout(function () { b.disabled = true; }, 0);
+  });
+})();
+</script>
+{% endblock %}

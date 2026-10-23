@@ -1,0 +1,93 @@
+{% extends "authority_base.html" %}
+{% from "_macros.html" import sev_pill, status_pill, road_tracker %}
+{% block title %}{{ rep.report_id }}{% endblock %}
+{% block content %}
+<div class="muted small"><a href="{{ url_for('authority.reports') }}">Reports</a> / {{ rep.report_id }}</div>
+<div class="report-head">
+  <div><h1 class="report-id" style="font-size:1.9rem">{{ rep.report_id }}</h1>
+    <div class="muted small">{{ rep.location or 'No location' }} &middot; submitted {{ rep.created_at|fmtday }} by {{ citizen_label(rep) }} &middot; day {{ rep.days_elapsed }} of {{ cfg.SLA_DAYS }}</div></div>
+  <div class="btn-row">{{ status_pill(rep, true) }} <a class="btn secondary small" href="{{ url_for('report_detail', report_id=rep.report_id) }}">View citizen page</a></div>
+</div>
+
+{% if rep.is_overdue() %}<div class="banner danger" style="margin-bottom:14px"><b>Resolution target exceeded by {{ rep.days_overdue }} day{{ '' if rep.days_overdue == 1 else 's' }}.</b> Escalation level: {{ rep.escalation_level_name }}.</div>{% endif %}
+
+<div class="card">{{ road_tracker(timeline, rep.is_overdue()) }}</div>
+
+<div class="grid-2 section-gap" style="align-items:start">
+  <div>
+    <div class="card">
+      <h2>Report</h2>
+      <dl class="kv">
+        <dt>Damage</dt><dd>{{ rep.detected_damage }}</dd>
+        <dt>Severity</dt><dd>{{ sev_pill(rep.severity_level) }}</dd>
+        <dt>Road Health</dt><dd>{{ rep.health_score }} / 100 <span class="muted">({{ rep.health_condition }})</span></dd>
+        <dt>Repair priority</dt><dd><span class="pill {{ rep.repair_priority|lower }}">{{ rep.repair_priority|title }}</span> <span class="muted small">{{ rep.priority_reason }}</span></dd>
+        <dt>Verified</dt><dd>{% if rep.is_verified %}Yes, by {{ rep.verified_by }} on {{ rep.verified_at|fmtday }}{% else %}Not yet{% endif %}</dd>
+        <dt>Department</dt><dd>{{ rep.department or 'Assignment pending' }}</dd>
+        <dt>Officer</dt><dd>{{ rep.officer_name or '-' }}{% if rep.officer_id %} ({{ rep.officer_id }}){% endif %}</dd>
+        <dt>Escalation</dt><dd>{{ rep.escalation_level_name }}</dd>
+        {% if rep.latitude is not none %}<dt>Coordinates</dt><dd>{{ '%.5f'|format(rep.latitude) }}, {{ '%.5f'|format(rep.longitude) }} <a class="small" href="{{ url_for('authority.authority_map', focus=rep.report_id) }}">on map</a></dd>{% endif %}
+      </dl>
+      {% if rep.description %}<p style="margin-top:12px"><b>Citizen note:</b> {{ rep.description }}</p>{% endif %}
+    </div>
+    <div class="card section-gap"><h2>Photos</h2>
+      <div class="two-imgs"><img class="imgframe" src="{{ rep.image_path }}" alt="Citizen photo"><img class="imgframe" src="{{ rep.annotated_image_path }}" alt="Annotated"></div>
+      {% if rep.status == 'RESOLVED' and rep.resolution_image_path %}<h3 style="margin-top:16px">Repair evidence</h3><img class="imgframe" style="max-width:420px" src="{{ rep.resolution_image_path }}" alt="After repair">{% endif %}
+    </div>
+    {% if related %}<div class="card section-gap"><h2>Possible related reports</h2>
+      <p class="muted small">Grouped for review. Nothing is merged or deleted automatically.
+        {% if rep.duplicate_group_id %}<a href="{{ url_for('duplicate_group_detail', group_id=rep.duplicate_group_id) }}">Open group</a>{% endif %}</p>
+      {% for r in related %}<p style="margin:4px 0"><a class="report-id" href="{{ url_for('authority.manage', report_id=r.report_id) }}">{{ r.report_id }}</a> &middot; {{ r.detected_damage }} &middot; {{ status_pill(r) }}</p>{% endfor %}</div>{% endif %}
+    <div class="card section-gap"><h2>Audit trail</h2>
+      <ul class="audit">{% for h in history %}<li><span class="t">{{ h.at|fmtdate }}</span><span><b>{{ h.event if h.event else status_labels.get(h.status, h.status) }}</b>{% if h.by %} <span class="muted">by {{ h.by }}</span>{% endif %}{% if h.note %}<br><span class="muted">{{ h.note }}</span>{% endif %}</span></li>{% endfor %}</ul></div>
+  </div>
+
+  <div>
+    {% if rep.status == 'RESOLVED' %}
+    <div class="banner ok"><b>Resolved</b> on {{ (rep.resolution_date or rep.resolved_at)|fmtday }} by {{ rep.resolved_by or 'unknown' }}.{% if rep.resolution_notes %}<br>{{ rep.resolution_notes }}{% endif %}</div>
+    {% else %}
+    {% if not rep.is_verified %}
+    <div class="card" id="verify"><h2>Verify report</h2>
+      <p class="muted small">Confirms this is genuine road damage and moves it to Under Review. The reporting citizen earns verification points.</p>
+      <form method="post" action="{{ url_for('authority.verify', report_id=rep.report_id) }}"><button class="btn" type="submit">Verify and start review</button></form></div>
+    {% endif %}
+
+    <div class="card {{ 'section-gap' if not rep.is_verified }}" id="assign"><h2>{{ 'Reassign' if rep.is_assigned else 'Assign' }} responsible department</h2>
+      <p class="muted small">Type the real department and officer. Nothing is pre-filled or invented, and this does not notify anyone outside RoadScan.</p>
+      <form method="post" action="{{ url_for('authority.assign', report_id=rep.report_id) }}" class="act-form">
+        <div><label for="department" style="margin-top:0">Department</label><input type="text" id="department" name="department" list="deptlist" required value="{{ rep.department or '' }}"><datalist id="deptlist">{% for d in departments %}<option value="{{ d }}">{% endfor %}</datalist></div>
+        <div class="grid-2"><div><label for="officer_name" style="margin-top:0">Officer name</label><input type="text" id="officer_name" name="officer_name" value="{{ rep.officer_name or '' }}"></div>
+          <div><label for="officer_id" style="margin-top:0">Officer / department ID</label><input type="text" id="officer_id" name="officer_id" value="{{ rep.officer_id or '' }}"></div></div>
+        <div><label for="anote" style="margin-top:0">Note <span class="muted">(optional)</span></label><input type="text" id="anote" name="note"></div>
+        <button class="btn" type="submit">Save assignment</button>
+      </form></div>
+
+    <div class="card section-gap" id="status"><h2>Update status</h2>
+      <form method="post" action="{{ url_for('authority.update_status', report_id=rep.report_id) }}" class="inline-form">
+        <div><label for="status_sel">Status</label><select id="status_sel" name="status">{% for s in statuses %}<option value="{{ s }}" {{ 'selected' if s == rep.status }}>{{ status_labels[s] }}</option>{% endfor %}<option value="RESOLVED">Resolved (needs repair evidence)</option></select></div>
+        <div style="flex:2 1 200px"><label for="snote">Note <span class="muted">(optional)</span></label><input type="text" id="snote" name="note"></div>
+        <div style="flex:0 0 auto"><button class="btn" type="submit">Update</button></div>
+      </form>
+      <p class="muted small" style="margin:8px 0 0">Assigned and In Progress need a responsible department first.</p></div>
+
+    {% if rep.is_overdue() %}
+    <div class="card section-gap" id="escalate"><h2>Escalate</h2>
+      <p class="muted small">Past the {{ cfg.SLA_DAYS }}-day target. Simulated: records the escalation, does not notify a real authority.</p>
+      {% if rep.next_escalation_name %}<form method="post" action="{{ url_for('authority.escalate', report_id=rep.report_id) }}" class="inline-form">
+        <div style="flex:2 1 200px"><label for="enote">Note <span class="muted">(optional)</span></label><input type="text" id="enote" name="note"></div>
+        <div style="flex:0 0 auto"><button class="btn danger" type="submit">Escalate to {{ rep.next_escalation_name }}</button></div></form>
+      {% else %}<p><b>Already at the highest level ({{ rep.escalation_level_name }}).</b></p>{% endif %}</div>
+    {% endif %}
+
+    <div class="card section-gap" id="resolve"><h2>Upload repair evidence and resolve</h2>
+      <p class="muted small">An after-repair photo is required. RoadScan shows it beside the citizen's original photo. This is photo evidence, not a certification of the repair.</p>
+      <form method="post" action="{{ url_for('authority.resolve', report_id=rep.report_id) }}" enctype="multipart/form-data">
+        <label for="after_image" style="margin-top:0">After-repair photo</label><input type="file" id="after_image" name="after_image" accept="image/jpeg,image/png" required>
+        <label for="rdate">Resolution date</label><input type="date" id="rdate" name="resolution_date" value="{{ today }}" max="{{ today }}">
+        <label for="rnotes">Repair notes <span class="muted">(optional)</span></label><textarea id="rnotes" name="notes" placeholder="e.g. Damaged pavement removed and resurfaced."></textarea>
+        <button class="btn" type="submit" style="margin-top:14px">Mark as Resolved</button>
+      </form></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

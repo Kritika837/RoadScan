@@ -1,0 +1,41 @@
+{% extends "authority_base.html" %}
+{% block title %}Analytics{% endblock %}
+{% block content %}
+<h1 style="font-size:1.9rem">Analytics</h1>
+<div class="kpis">
+  <div class="kpi"><div class="n">{{ stats.total }}</div><div class="l">Total reports</div></div>
+  <div class="kpi"><div class="n">{{ stats.resolved }}</div><div class="l">Resolved</div></div>
+  <div class="kpi"><div class="n">{{ avg_days if avg_days is not none else '-' }}</div><div class="l">Avg days to resolve</div></div>
+  <div class="kpi"><div class="n">{{ (on_time ~ '%') if on_time is not none else '-' }}</div><div class="l">Resolved within {{ cfg.SLA_DAYS }} days</div></div>
+  <div class="kpi {{ 'alert' if stats.escalation_required }}"><div class="n">{{ stats.escalation_required }}</div><div class="l">Escalation required</div></div>
+  <div class="kpi"><div class="n">{{ sev.CRITICAL + sev.HIGH }}</div><div class="l">High / Critical</div></div>
+</div>
+<p class="muted small" style="margin-top:8px">All figures are computed from stored reports.</p>
+
+<div class="card section-gap"><h2>Advanced tools</h2>
+  <div class="btn-row">
+    <a class="btn secondary" href="{{ url_for('authority.inspect') }}">Inspect a road photo</a>
+    <a class="btn secondary" href="{{ url_for('history_list') }}">Inspection history</a>
+    <a class="btn secondary" href="{{ url_for('segment_list') }}">Road segments</a>
+    <a class="btn secondary" href="{{ url_for('area_health_list') }}">Area health</a>
+    <a class="btn secondary" href="{{ url_for('compare_page') }}">Compare two photos</a>
+  </div>
+</div>
+
+{% if area_overview %}
+<div class="card section-gap"><h2>Area overview</h2><div class="table-wrap"><table>
+  <tr><th>Area</th><th>Road health</th><th>High priority</th><th>Roads</th><th>Reports</th><th></th></tr>
+  {% for a in area_overview %}<tr><td>{{ a.label }}</td>
+    <td>{% if a.score is not none %}{{ a.score }} / 100 <span class="pill {{ a.condition|lower }}">{{ a.condition }}</span>{% else %}<span class="muted">Insufficient data</span>{% endif %}</td>
+    <td>{{ a.high_priority }}</td><td>{{ a.segment_count }}</td><td>{{ a.report_count }}</td><td><a href="{{ url_for('area_health_detail', area_key=a.area_key) }}">Area view</a></td></tr>{% endfor %}
+</table></div></div>
+{% endif %}
+
+<div class="card section-gap"><h2>Possible duplicate groups</h2>
+  {% if duplicate_groups %}{% for g in duplicate_groups %}
+  <div class="dup-group-row"><div><b>Group {{ g.group_id }}</b> {% if g.confidence == 'likely' %}<span class="pill high">Likely related</span>{% else %}<span class="pill medium">Possible duplicate</span>{% endif %}
+    <div class="muted small">{{ g.damage_label or g.damage_class }} &middot; {{ g.location_label }} &middot; {{ g.member_count }} reports</div></div>
+    <a class="btn secondary small" href="{{ url_for('duplicate_group_detail', group_id=g.group_id) }}">Review group</a></div>
+  {% endfor %}{% else %}<div class="empty-state">No duplicate groups.</div>{% endif %}
+</div>
+{% endblock %}

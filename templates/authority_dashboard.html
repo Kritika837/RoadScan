@@ -1,0 +1,19 @@
+{% extends "authority_base.html" %}
+{% from "_auth_rows.html" import report_table with context %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1 style="font-size:1.9rem">Dashboard</h1>
+<div class="kpis">
+  <a class="kpi" href="{{ url_for('authority.reports', view='open') }}"><div class="n">{{ counts.open }}</div><div class="l">Open reports</div></a>
+  <a class="kpi" href="{{ url_for('authority.reports', view='high') }}"><div class="n">{{ counts.high }}</div><div class="l">High priority</div></a>
+  <a class="kpi {{ 'alert' if counts.escalation }}" href="{{ url_for('authority.escalations') }}"><div class="n">{{ counts.escalation }}</div><div class="l">Escalation required</div></a>
+  <a class="kpi" href="{{ url_for('authority.assigned') }}"><div class="n">{{ counts.mine }}</div><div class="l">Assigned to me</div></a>
+  <a class="kpi" href="{{ url_for('authority.reports', view='in_progress') }}"><div class="n">{{ counts.in_progress }}</div><div class="l">In progress</div></a>
+  <a class="kpi" href="{{ url_for('authority.resolved') }}"><div class="n">{{ counts.resolved }}</div><div class="l">Resolved</div></a>
+</div>
+<div class="card section-gap">
+  <div class="report-head" style="margin-bottom:8px"><h2 style="margin:0">Needs attention</h2><a class="btn secondary small" href="{{ url_for('authority.reports') }}">All open reports</a></div>
+  <p class="muted small">Overdue reports first, then by repair priority.</p>
+  {{ report_table(reports) }}
+</div>
+{% endblock %}

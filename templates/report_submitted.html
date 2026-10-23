@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sev_pill, status_pill, road_tracker %}
+{% block title %}Report submitted - {{ rep.report_id }}{% endblock %}
+{% block content %}
+{% set has_damage = rep.severity_level and rep.severity_level != 'NONE' %}
+<div class="container narrow">
+  <div class="center" style="margin-bottom:22px">
+    <div style="width:64px;height:64px;border-radius:50%;background:var(--ok);color:#fff;display:grid;place-items:center;font-size:2rem;margin:0 auto 12px">&#10003;</div>
+    <h1 style="font-size:clamp(1.6rem,4vw,2.2rem)">Your report has been submitted</h1>
+    <p class="muted">Save your Report ID to follow the repair.</p>
+  </div>
+
+  <div class="result">
+    <div class="result-head sev-{{ rep.severity_level|lower if has_damage else 'none' }}">
+      {% if has_damage %}ROAD DAMAGE DETECTED{% else %}NO CLEAR DAMAGE DETECTED{% endif %}
+    </div>
+    <div class="result-body">
+      <img src="{{ rep.annotated_image_path }}" alt="Your photo with the detected damage outlined">
+      <dl class="facts">
+        <div><dt>Damage</dt><dd>{{ rep.detected_damage }}</dd></div>
+        <div><dt>Severity</dt><dd>{{ sev_pill(rep.severity_level) }}</dd></div>
+        <div><dt>Road Health</dt><dd>{{ rep.health_score }} <span class="muted" style="font-weight:600">/ 100</span></dd></div>
+        <div><dt>Repair Priority</dt><dd><span class="pill {{ rep.repair_priority|lower }}">{{ rep.repair_priority|title }}</span></dd></div>
+        <div class="wide"><dt>Location</dt><dd>{{ rep.location }}</dd></div>
+        <div class="wide"><dt>Report ID</dt><dd><span class="report-id" id="rid">{{ rep.report_id }}</span>
+          <button type="button" class="btn secondary small" style="margin-left:8px" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById('rid').textContent).then(function(){event.target.textContent='Copied'})">Copy</button></dd></div>
+      </dl>
+    </div>
+    <div style="padding:0 22px 18px">{% include "_ai_analysis.html" %}</div>
+  </div>
+
+  {% if points_earned %}
+  <div class="reward-note section-gap">+{{ points_earned }} points earned for reporting valid road damage. <a href="{{ url_for('rewards_page') }}">See your rewards</a></div>
+  {% elif no_points_reason == 'repeat_photo' %}
+  <div class="banner info section-gap">This photo was already reported{% if existing_photo %} as {{ existing_photo[0].report_id }}{% endif %}, so no extra points were added. Points are awarded once for each new photo.</div>
+  {% elif no_points_reason == 'own_duplicate' %}
+  <div class="banner info section-gap">You've already reported this spot, so no extra points were added. Your report is linked to the earlier one.</div>
+  {% elif no_points_reason == 'daily_cap' %}
+  <div class="banner info section-gap">You've reached today's limit for reward points. Your report is still saved and tracked.</div>
+  {% elif no_points_reason == 'no_damage' %}
+  <div class="banner warn section-gap">We couldn't clearly see road damage in this photo. Your report is saved and can be reviewed by a person. Reward points are added once it's verified.</div>
+  {% endif %}
+
+  {% if related %}
+  <div class="banner info section-gap">{{ related|length }} similar report{{ '' if related|length == 1 else 's' }} already exist{{ 's' if related|length == 1 }} for this spot. Yours has been linked to {{ 'it' if related|length == 1 else 'them' }} so reviewers can see the full picture.</div>
+  {% endif %}
+
+  <div class="card section-gap">
+    <h2>What happens next?</h2>
+    <ol class="next-list">
+      {% set desc = {'REPORTED': 'We received your report and photo.', 'UNDER_REVIEW': 'A reviewer checks the photo and location.', 'ASSIGNED': 'A responsible department is assigned.', 'IN_PROGRESS': 'Repair work is underway.', 'RESOLVED': 'Repair evidence is added so you can compare before and after.'} %}
+      {% for s in timeline %}
+      <li class="{{ s.state }}"><i class="pt"></i><b>{{ s.label }}</b><span>{{ desc[s.key] }}</span></li>
+      {% endfor %}
+    </ol>
+    <div class="banner info"><b>Estimated response target: {{ cfg.SLA_DAYS }} days</b> (by {{ rep.target_at|fmtday }}).
+      This is a prototype workflow: your report is not sent to a real government authority.</div>
+  </div>
+
+  <div class="btn-row section-gap">
+    <a class="btn big mobile-block" href="{{ url_for('report_detail', report_id=rep.report_id) }}">Track this report</a>
+    <a class="btn secondary big mobile-block" href="{{ url_for('report_form') }}">Report another</a>
+  </div>
+</div>
+{% endblock %}

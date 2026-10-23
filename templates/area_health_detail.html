@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sev_pill, status_pill %}
+{% block title %}{{ card.label }} - Area view{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="muted small"><a href="{{ url_for('road_map') }}">Road Map</a> / Area</div>
+  <h1 style="font-size:clamp(1.7rem,4vw,2.4rem)">{{ card.label }}</h1>
+  <p class="lede">A summary built only from real reports and inspections in this area.</p>
+
+  <div class="stat-row" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+    <div class="stat"><div class="n">{{ card.report_count }}</div><div class="l">Road reports</div></div>
+    <div class="stat"><div class="n">{{ card.open_reports }}</div><div class="l">Open reports</div></div>
+    <div class="stat"><div class="n">{{ card.resolved }}</div><div class="l">Resolved</div></div>
+    <div class="stat"><div class="n">{{ card.high_critical }}</div><div class="l">High / Critical</div></div>
+    <div class="stat"><div class="n">{{ card.score if card.score is not none else '-' }}</div><div class="l">Average road health</div></div>
+  </div>
+  {% if not card.insufficient_data %}
+  <p class="muted small" style="margin-top:10px">Road health is the average of the latest score for each of the {{ card.segment_count }} inspected road segment{{ '' if card.segment_count == 1 else 's' }} in this area. It is a decision-support estimate from photos, not an official rating.</p>
+  {% endif %}
+
+  <div class="card section-gap">
+    <h2>Nearby reports</h2>
+    {% if nearby %}
+    <div class="table-wrap"><table>
+      <tr><th>Report ID</th><th>Location</th><th>Damage</th><th>Severity</th><th>Status</th><th></th></tr>
+      {% for r in nearby %}
+      <tr><td class="report-id">{{ r.report_id }}</td><td>{{ r.location }}</td><td>{{ r.detected_damage }}</td><td>{{ sev_pill(r.severity_level) }}</td><td>{{ status_pill(r) }}</td>
+          <td><a class="btn secondary small" href="{{ url_for('report_detail', report_id=r.report_id) }}">View Report</a></td></tr>
+      {% endfor %}
+    </table></div>
+    {% else %}<div class="empty-state">No citizen reports in this area yet.</div>{% endif %}
+  </div>
+
+  {% if card.damage_distribution %}
+  <div class="card section-gap">
+    <h2>Types of damage</h2>
+    {% for cls, pct in card.damage_distribution.items() %}
+    <div class="bar-row"><span class="bar-label">{{ cls }}</span><div class="bar-track"><div class="bar-fill" style="width: {{ pct }}%"></div></div><span class="bar-pct">{{ pct }}%</span></div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

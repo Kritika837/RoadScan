@@ -1,0 +1,61 @@
+{% extends "authority_base.html" %}
+{% block title %}{{ location }} &middot; History{% endblock %}
+{% block content %}
+<h1>History: {{ location }}</h1>
+
+{% if records|length >= 2 %}
+<div class="card section-gap">
+  <h2>Health Score Over Time</h2>
+  <svg width="100%" viewBox="0 0 {{ chart_w }} {{ chart_h }}" preserveAspectRatio="xMidYMid meet">
+    <line x1="20" y1="20" x2="20" y2="{{ chart_h - 20 }}" stroke="#3a3f44" stroke-width="1"/>
+    <line x1="20" y1="{{ chart_h - 20 }}" x2="{{ chart_w - 20 }}" y2="{{ chart_h - 20 }}" stroke="#3a3f44" stroke-width="1"/>
+    <polyline points="{{ svg_points }}" fill="none" stroke="#f2b418" stroke-width="2.5"/>
+    {% for d in svg_dots %}
+    <circle cx="{{ d.x }}" cy="{{ d.y }}" r="3.5" fill="#f2b418"/>
+    <text x="{{ d.x }}" y="{{ d.y - 8 }}" text-anchor="middle" font-size="10" fill="#eae7df">{{ d.score }}</text>
+    <text x="{{ d.x }}" y="{{ chart_h - 6 }}" text-anchor="middle" font-size="9" fill="#9ba0a6">{{ d.date }}</text>
+    {% endfor %}
+  </svg>
+</div>
+{% endif %}
+
+{% if comparison %}
+<div class="card section-gap">
+  <h2>Latest change &mdash;
+    {% if comparison.trend_status == 'improving' %}<span class="pill low">IMPROVING</span>
+    {% elif comparison.trend_status == 'deteriorating' %}<span class="pill high">DETERIORATING</span>
+    {% else %}<span class="pill medium">STABLE</span>{% endif %}
+  </h2>
+  <table>
+    <tr><th></th><th>Previous</th><th>Current</th><th>Change</th></tr>
+    <tr><td class="muted">Road Health Score</td><td>{{ comparison.previous.health_score }}</td><td>{{ comparison.current.health_score }}</td><td>{{ comparison.score_delta }}</td></tr>
+    <tr><td class="muted">Damage count</td><td>{{ comparison.previous.damage_count }}</td><td>{{ comparison.current.damage_count }}</td><td>{{ comparison.count_delta }}</td></tr>
+    <tr><td class="muted">Estimated damaged area</td><td>{{ (comparison.previous.damaged_area_ratio*100)|round(2) }}%</td><td>{{ (comparison.current.damaged_area_ratio*100)|round(2) }}%</td><td>{{ (comparison.area_delta*100)|round(2) }}%</td></tr>
+    <tr><td class="muted">Priority</td><td>{{ comparison.previous.priority }}</td><td>{{ comparison.current.priority }}</td><td>{{ "changed" if comparison.priority_changed else "unchanged" }}</td></tr>
+  </table>
+</div>
+{% elif records|length == 1 %}
+<div class="card section-gap"><p class="muted">Only one assessment recorded so far &mdash; a trend needs at least two to be meaningful. No change is claimed yet.</p></div>
+{% endif %}
+
+<div class="card section-gap">
+  <h2>All assessments ({{ records|length }})</h2>
+  {% if records %}
+  <table>
+    <tr><th>Date</th><th>Image</th><th>Score</th><th>Condition</th><th>Damages</th><th>Priority</th></tr>
+    {% for r in records|reverse %}
+    <tr>
+      <td class="muted">{{ r.created_at | fmtdate }}</td>
+      <td>{{ r.image_name }}</td>
+      <td>{{ r.health_score }}</td>
+      <td><span class="pill {{ r.condition|lower }}">{{ r.condition }}</span></td>
+      <td>{{ r.damage_count }}</td>
+      <td><span class="pill {{ r.priority|lower }}">{{ r.priority }}</span></td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="empty-state">No assessments recorded for this location yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

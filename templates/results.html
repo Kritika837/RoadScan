@@ -1,0 +1,171 @@
+{% extends "authority_base.html" %}
+{% block title %}Assessment results &middot; Roadscan{% endblock %}
+{% block content %}
+
+<h1>Assessment: {{ image_name }}</h1>
+<p class="muted">Inspection ID: {{ inspection_id }}{% if location %} &middot; Location: <strong>{{ location }}</strong>{% endif %}</p>
+
+<div class="grid-3 section-gap">
+  <div class="card">
+    <div class="muted">Road Health</div>
+    <div class="gauge-score">{{ health.score }}<span class="muted" style="font-size:1rem;">/100</span></div>
+    <span class="pill {{ health.condition|lower }}">{{ health.condition }}</span>
+  </div>
+  <div class="card">
+    <div class="muted">Repair Priority</div>
+    <div class="gauge-score" style="font-size:1.6rem; margin-top:8px;">
+      <span class="pill {{ priority.level|lower }}">{{ priority.level }}</span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="muted">Damages Detected</div>
+    <div class="gauge-score">{{ assessments|length }}</div>
+    <div class="muted">{{ (total_area_ratio*100)|round(2) }}% of surface affected</div>
+  </div>
+</div>
+
+<div class="grid-2 section-gap">
+  <div class="card">
+    <h2>Annotated image</h2>
+    <img class="imgframe" src="{{ annotated_url }}" alt="Annotated detection result">
+    <p class="muted" style="margin-top:10px;">
+      Boxes show each detection's bounding box; shaded regions show its approximate affected
+      region (contour-based, not a learned pixel-perfect segmentation mask &mdash; see README).
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Road Health Score breakdown</h2>
+    <table>
+      <tr><td class="muted">Starting score</td><td>100</td></tr>
+      <tr><td class="muted">Damage penalty</td><td>-{{ health.breakdown.damage_penalty }}</td></tr>
+      <tr><td class="muted">Count penalty</td><td>-{{ health.breakdown.count_penalty }}</td></tr>
+      <tr><td class="muted"><strong>Final score</strong></td><td><strong>{{ health.score }}</strong></td></tr>
+    </table>
+    {% if health.penalty_by_class %}
+    <div class="muted" style="margin-top:14px; margin-bottom:6px;">Penalty by damage type</div>
+    <table>
+      {% for cls, pen in health.penalty_by_class.items() %}
+      <tr><td>{{ cls }}</td><td>-{{ pen }}</td></tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card section-gap">
+  <h2>Repair priority: <span class="pill {{ priority.level|lower }}">{{ priority.level }}</span></h2>
+  <p><strong>Reason:</strong> {{ priority.reason }}</p>
+  <p class="muted"><strong>Recommended action:</strong> {{ priority.recommended_action }}</p>
+</div>
+
+<div class="grid-2 section-gap">
+  <div class="card">
+    <h2>Damage-type distribution</h2>
+    {% if type_counts %}
+    <table>
+      <tr><th>Type</th><th>Count</th></tr>
+      {% for cls, count in type_counts.items() %}
+      <tr><td>{{ cls }}</td><td>{{ count }}</td></tr>
+      {% endfor %}
+    </table>
+    {% else %}<p class="muted">No damage detected.</p>{% endif %}
+  </div>
+  <div class="card">
+    <h2>Severity distribution</h2>
+    <table>
+      {% for level, count in severity_counts.items() %}
+      <tr><td><span class="pill {{ level|lower }}">{{ level }}</span></td><td>{{ count }}</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+
+<div class="card section-gap">
+  <h2>Detected damage ({{ assessments|length }})</h2>
+  {% if assessments %}
+  <table>
+    <tr>
+      <th>#</th><th>Type</th><th>Confidence</th><th>Severity</th><th>Est. area</th><th>Reason</th>
+    </tr>
+    {% for a in assessments %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>{{ a.detection.class_id }} &middot; {{ a.detection.class_name }}</td>
+      <td>{{ (a.detection.confidence*100)|round(0) }}%</td>
+      <td><span class="pill {{ a.severity|lower }}">{{ a.severity }}</span></td>
+      <td>{{ (a.area_ratio*100)|round(2) }}%</td>
+      <td class="muted">{{ a.reason }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="muted">No damage detected above the confidence threshold in this image.</p>
+  {% endif %}
+</div>
+
+<div class="card section-gap">
+  <h2>Explainability</h2>
+  <div class="two-imgs">
+    <div>
+      <p class="muted">Detection + region</p>
+      <img class="imgframe" src="{{ annotated_url }}" alt="Detection and region overlay">
+    </div>
+    <div>
+      <p class="muted">Evidence heatmap</p>
+      <img class="imgframe" src="{{ heatmap_url }}" alt="Evidence heatmap">
+    </div>
+  </div>
+  <p class="muted" style="margin-top:10px;">
+    The heatmap shows pixels that most influenced detection under the active backend
+    (<code>{{ detector_name }}</code>). This is <strong>not</strong> Grad-CAM &mdash; Grad-CAM requires
+    back-propagating through a trained CNN's convolutional layers. When the YOLOv7 backend is active,
+    a true Grad-CAM/EigenCAM visualization can be substituted here without changing any other module.
+  </p>
+</div>
+
+{% if duplicate_note %}
+<div class="card section-gap"><p class="muted">{{ duplicate_note }}</p></div>
+{% endif %}
+
+{% if history_comparison %}
+<div class="card section-gap">
+  <h2>Change since last assessment at this location</h2>
+  <p>Trend: <span class="pill {{ 'low' if history_comparison.trend_status == 'improving' else ('high' if history_comparison.trend_status == 'deteriorating' else 'medium') }}">{{ history_comparison.trend_status|upper }}</span> &mdash; {{ history_comparison.trend }}</p>
+  <table>
+    <tr><th></th><th>Previous</th><th>Current</th><th>Change</th></tr>
+    <tr>
+      <td class="muted">Road Health Score</td>
+      <td>{{ history_comparison.previous.health_score }}</td>
+      <td>{{ history_comparison.current.health_score }}</td>
+      <td>{{ history_comparison.score_delta }}</td>
+    </tr>
+    <tr>
+      <td class="muted">Damage count</td>
+      <td>{{ history_comparison.previous.damage_count }}</td>
+      <td>{{ history_comparison.current.damage_count }}</td>
+      <td>{{ history_comparison.count_delta }}</td>
+    </tr>
+    <tr>
+      <td class="muted">Priority</td>
+      <td>{{ history_comparison.previous.priority }}</td>
+      <td>{{ history_comparison.current.priority }}</td>
+      <td>{{ "changed" if history_comparison.priority_changed else "unchanged" }}</td>
+    </tr>
+  </table>
+  <p class="muted" style="margin-top:10px;"><a href="{{ url_for('history_detail', location=location) }}">View full history for '{{ location }}' &rarr;</a></p>
+</div>
+{% endif %}
+
+<div class="card section-gap">
+  <h2>Export report</h2>
+  <a class="btn" href="{{ pdf_url }}">Download PDF report</a>
+  <a class="btn secondary" href="{{ html_url }}">View / download HTML report</a>
+  <a class="btn secondary" href="{{ json_url }}">Download JSON</a>
+</div>
+
+<div class="disclaimer">
+  This report is generated automatically from image analysis. It is a decision-support
+  recommendation, not a certified civil-engineering inspection.
+</div>
+{% endblock %}

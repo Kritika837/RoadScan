@@ -1,0 +1,82 @@
+{% extends "authority_base.html" %}
+{% block title %}{{ profile.road_label }} &middot; Road Segment{% endblock %}
+{% block content %}
+<h1>{{ profile.road_label }}</h1>
+<p class="lede">{{ profile.area_label }}</p>
+<p class="muted" style="margin-top:-8px;">Segment ID: <code>{{ profile.segment_id }}</code> &mdash; prototype road-segment grouping (road name + area), not verified GIS segmentation.</p>
+
+<div class="grid-3 section-gap">
+  <div class="card stat-card">
+    <div class="muted">Current Health</div>
+    <div class="gauge-score">{{ profile.current_health }}<span style="font-size:1rem; color:var(--chalk-dim);">/100</span></div>
+    <div class="gauge-label"><span class="pill {{ (profile.current_condition or '')|lower }}">{{ profile.current_condition }}</span></div>
+  </div>
+  <div class="card stat-card">
+    <div class="muted">Current Priority</div>
+    <div class="gauge-score" style="font-size:1.8rem;"><span class="pill {{ (profile.current_priority or '')|lower }}">{{ profile.current_priority }}</span></div>
+  </div>
+  <div class="card stat-card">
+    <div class="muted">Total Inspections</div>
+    <div class="gauge-score">{{ profile.total_inspections }}</div>
+  </div>
+</div>
+
+<div class="grid-2 section-gap">
+  <div class="card">
+    <div class="muted">First Inspected</div>
+    <div>{{ profile.first_inspected | fmtdate }}</div>
+  </div>
+  <div class="card">
+    <div class="muted">Last Inspected</div>
+    <div>{{ profile.last_inspected | fmtdate }}</div>
+  </div>
+</div>
+
+<div class="card section-gap">
+  <h2>Damage Summary</h2>
+  {% if profile.damage_summary %}
+  <table>
+    <tr>{% for cls in profile.damage_summary.keys() %}<th>{{ cls }}</th>{% endfor %}</tr>
+    <tr>{% for n in profile.damage_summary.values() %}<td>{{ n }}</td>{% endfor %}</tr>
+  </table>
+  {% else %}
+  <p class="muted">No damage recorded across this segment's inspections.</p>
+  {% endif %}
+</div>
+
+{% if profile.total_inspections >= 2 %}
+<div class="card section-gap">
+  <h2>Road Health Trend</h2>
+  <p class="muted" style="margin-bottom:14px;">{{ profile.health_trend | join(' &rarr; ') | safe }}</p>
+  <svg width="100%" viewBox="0 0 {{ chart_w }} {{ chart_h }}" preserveAspectRatio="xMidYMid meet">
+    <line x1="20" y1="20" x2="20" y2="{{ chart_h - 20 }}" stroke="#3a3f44" stroke-width="1"/>
+    <line x1="20" y1="{{ chart_h - 20 }}" x2="{{ chart_w - 20 }}" y2="{{ chart_h - 20 }}" stroke="#3a3f44" stroke-width="1"/>
+    <polyline points="{{ svg_points }}" fill="none" stroke="#f2b418" stroke-width="2.5"/>
+    {% for d in svg_dots %}
+    <circle cx="{{ d.x }}" cy="{{ d.y }}" r="3.5" fill="#f2b418"/>
+    <text x="{{ d.x }}" y="{{ d.y - 8 }}" text-anchor="middle" font-size="10" fill="#eae7df">{{ d.score }}</text>
+    <text x="{{ d.x }}" y="{{ chart_h - 6 }}" text-anchor="middle" font-size="9" fill="#9ba0a6">{{ d.date }}</text>
+    {% endfor %}
+  </svg>
+</div>
+{% else %}
+<div class="card section-gap"><p class="muted">Only one inspection recorded for this segment so far &mdash; a trend needs at least two. No history is fabricated.</p></div>
+{% endif %}
+
+<div class="card section-gap">
+  <h2>Inspection / Report History</h2>
+  <table>
+    <tr><th>Date</th><th>Source</th><th>Health</th><th>Condition</th><th>Priority</th><th></th></tr>
+    {% for e in profile.history|reverse %}
+    <tr>
+      <td class="muted">{{ e.created_at | fmtdate }}</td>
+      <td>{{ e.source_label }}</td>
+      <td>{{ e.health_score }}</td>
+      <td><span class="pill {{ (e.condition or '')|lower }}">{{ e.condition }}</span></td>
+      <td><span class="pill {{ (e.priority or '')|lower }}">{{ e.priority }}</span></td>
+      <td>{% if e.detail_url %}<a href="{{ url_for('report_detail', report_id=e.detail_url) }}">View &rarr;</a>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

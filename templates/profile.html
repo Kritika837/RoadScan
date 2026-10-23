@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}My Profile - RoadScan{% endblock %}
+{% block content %}
+<div class="container narrow">
+  <div class="report-head">
+    <div style="display:flex;gap:14px;align-items:center">
+      <span class="avatar" style="width:56px;height:56px;font-size:1.5rem">{{ cz.initial if (cz and cz.name) else '?' }}</span>
+      <div><h1 style="font-size:1.8rem">{{ cz.display_name if cz else 'My Profile' }}</h1>
+        <div class="muted small">{% if cz %}Citizen ID {{ cz.code }}{% else %}Add your name to get started{% endif %}</div></div>
+    </div>
+  </div>
+
+  {% include "_level_card.html" %}
+
+  <div class="stat-row section-gap">
+    <div class="stat"><div class="n">{{ summary.stats.submitted }}</div><div class="l">Reports submitted</div></div>
+    <div class="stat"><div class="n">{{ summary.stats.verified }}</div><div class="l">Verified reports</div></div>
+    <div class="stat"><div class="n">{{ summary.stats.resolved }}</div><div class="l">Resolved issues</div></div>
+  </div>
+
+  {% if eligible %}<div class="section-gap"><a class="btn lane" href="{{ url_for('certificate_download') }}">Download Certificate</a></div>{% endif %}
+
+  <div class="card section-gap">
+    <h2>Your name</h2>
+    <form method="post" action="{{ url_for('profile') }}" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+      <div style="flex:1 1 220px"><label for="name" style="margin-top:0">Name shown on rewards and the certificate</label>
+        <input type="text" id="name" name="name" maxlength="60" value="{{ cz.name if (cz and cz.name) else '' }}" placeholder="e.g. Kritika"></div>
+      <button class="btn" type="submit">Save name</button>
+    </form>
+    <p class="muted small" style="margin:10px 0 0">Demo profile. Full sign-in is planned for a later version.</p>
+  </div>
+
+  <div class="card section-gap">
+    <h2>Contribution history</h2>
+    {% if history %}
+    <ul class="earn">
+      {% for e in history %}
+      <li><span class="p">+{{ e.points }}</span><div><b>{{ e.label }}</b><div class="muted small"><a class="report-id" href="{{ url_for('report_detail', report_id=e.report_id) }}">{{ e.report_id }}</a>{% if e.location %} &middot; {{ e.location }}{% endif %} &middot; {{ e.created_at|fmtday }}</div></div></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="empty-state"><p>Nothing here yet. Your contributions will appear as you report and as reports move forward.</p>
+      <a class="btn lane" href="{{ url_for('report_form') }}">Report Road Damage</a></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

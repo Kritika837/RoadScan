@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Verify certificate - RoadScan{% endblock %}
+{% block content %}
+<div class="container narrow">
+  <h1 style="font-size:1.9rem">Certificate check</h1>
+  {% if cert %}
+  <div class="card">
+    <div class="banner ok" style="margin-bottom:14px"><b>Valid RoadScan record.</b> This certificate was issued by RoadScan.</div>
+    <dl class="kv">
+      <dt>Verification ID</dt><dd class="report-id">{{ cert.verification_id }}</dd>
+      <dt>Citizen</dt><dd>{{ cert.citizen_name }}</dd>
+      <dt>Badge</dt><dd>{{ cert.badge }}</dd>
+      <dt>Points</dt><dd>{{ cert.points|fmtnum }}</dd>
+      <dt>Verified reports</dt><dd>{{ cert.verified_reports }}</dd>
+      <dt>Resolved reports</dt><dd>{{ cert.resolved_reports }}</dd>
+      <dt>Issued</dt><dd>{{ cert.issued_at|fmtday }}</dd>
+    </dl>
+    <p class="muted small" style="margin:14px 0 0">{{ cfg.CERTIFICATE_NOTE }}</p>
+  </div>
+  {% else %}
+  <div class="banner warn">No certificate was found for “{{ vid }}”. Check the verification ID printed on the certificate.</div>
+  {% endif %}
+</div>
+{% endblock %}

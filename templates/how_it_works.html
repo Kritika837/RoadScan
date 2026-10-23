@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}How RoadScan works{% endblock %}
+{% block content %}
+<div class="container narrow">
+  <h1>How RoadScan works</h1>
+  <p class="lede">A simple way to report a damaged road and follow it until it is fixed.</p>
+  <div class="card"><ol class="next-list">
+    <li class="done"><i class="pt"></i><b>Report</b><span>Add a photo, your location and a short note. It takes under a minute.</span></li>
+    <li class="done"><i class="pt"></i><b>Assessment</b><span>RoadScan finds the visible damage in the photo and estimates how serious it is.</span></li>
+    <li class="done"><i class="pt"></i><b>Review and assignment</b><span>A reviewer confirms the report and assigns a responsible department.</span></li>
+    <li class="done"><i class="pt"></i><b>Repair</b><span>The report is tracked for {{ cfg.SLA_DAYS }} days. If it isn't resolved by then, it is flagged for escalation.</span></li>
+    <li class="done"><i class="pt"></i><b>Proof and reward</b><span>When the road is repaired, an after photo is added so you can compare before and after. You earn points along the way.</span></li>
+  </ol></div>
+
+  <div class="card section-gap"><h2>What the assessment means</h2>
+    <p>An AI detector spots four kinds of damage: longitudinal cracks, transverse cracks, alligator cracks and potholes. From that, RoadScan works out a <b>severity</b>, a <b>Road Health</b> score out of 100 and a <b>Repair Priority</b> using fixed rules.</p>
+    <p class="muted" style="margin:0">These are decision-support estimates from a photo. They are not an engineering inspection or an official pavement rating.</p></div>
+
+  <div class="card section-gap"><h2>Rewards</h2>
+    <p>Valid reports, verified reports and resolved issues earn points. Reaching {{ cfg.BADGES[-1].min_points|fmtnum }} points earns the {{ cfg.BADGES[-1].name }} badge and a RoadScan recognition certificate. <a href="{{ url_for('rewards_page') }}">See how rewards work</a>.</p></div>
+
+  <div class="disclaimer"><b>This is a prototype.</b> RoadScan is not connected to any government department. Assignments, target dates and escalations are simulated inside RoadScan, and no real authority receives your report yet. Badges and certificates are RoadScan recognition only.</div>
+</div>
+{% endblock %}

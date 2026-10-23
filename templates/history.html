@@ -1,0 +1,34 @@
+{% extends "authority_base.html" %}
+{% block title %}History &middot; Roadscan{% endblock %}
+{% block content %}
+<h1>Tracked locations</h1>
+<p class="lede">Locations are grouped by the label you enter at upload time. Roadscan never assumes two images are the same physical spot on its own.</p>
+
+<div class="card section-gap">
+  {% if summaries %}
+  <table>
+    <tr><th>Location</th><th>Assessments</th><th>Latest score</th><th>Latest condition</th><th>Trend</th><th>Last updated</th><th></th></tr>
+    {% for s in summaries %}
+    <tr>
+      <td>{{ s.location }}</td>
+      <td>{{ s.num_assessments }}</td>
+      <td>{{ s.latest_score }}</td>
+      <td><span class="pill {{ s.latest_condition|lower }}">{{ s.latest_condition }}</span></td>
+      <td>
+        {% if s.trend_status == 'improving' %}<span class="pill low">IMPROVING</span>
+        {% elif s.trend_status == 'deteriorating' %}<span class="pill high">DETERIORATING</span>
+        {% elif s.trend_status == 'stable' %}<span class="pill medium">STABLE</span>
+        {% else %}<span class="muted">insufficient data</span>{% endif %}
+      </td>
+      <td class="muted">{{ s.latest_date }}</td>
+      <td><a href="{{ url_for('history_detail', location=s.location) }}">View &rarr;</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="empty-state">
+    No tracked locations yet. Add a location label when analyzing an image to start tracking it over time.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

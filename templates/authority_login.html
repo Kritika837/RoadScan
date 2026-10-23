@@ -1,0 +1,17 @@
+{% extends "authority_base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<div class="narrow" style="margin-top:20px">
+  <h1 style="font-size:1.9rem">Authority sign-in</h1>
+  <p class="muted">Prototype access for maintenance staff. Your name is recorded on every action you take.</p>
+  <form method="post" class="card">
+    <label for="name" style="margin-top:0">Your name</label>
+    <input type="text" id="name" name="name" required maxlength="60" placeholder="Name to show on actions">
+    <label for="officer_id">Officer / desk ID <span class="muted">(optional)</span></label>
+    <input type="text" id="officer_id" name="officer_id" maxlength="40">
+    {% if key_required %}<label for="key">Access key</label><input type="password" id="key" name="key" required>{% endif %}
+    <button class="btn" type="submit" style="margin-top:18px">Sign in</button>
+  </form>
+  <p class="muted small" style="margin-top:12px">This is not a real government login. Names are not verified.</p>
+</div>
+{% endblock %}

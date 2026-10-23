@@ -1,0 +1,30 @@
+{% from "_macros.html" import sev_pill, status_pill %}
+{% macro report_table(rows) %}
+{% if rows %}
+<div class="table-wrap"><table>
+  <tr><th>Report ID</th><th>Location</th><th>Damage</th><th>Severity</th><th>Priority</th><th>Citizen</th><th>Submitted</th><th>Days</th><th>Assigned officer</th><th>Status</th><th>Actions</th></tr>
+  {% for r in rows %}
+  <tr>
+    <td><a class="report-id" href="{{ url_for('authority.manage', report_id=r.report_id) }}"><b>{{ r.report_id }}</b></a></td>
+    <td>{{ r.location or 'Not specified' }}</td>
+    <td>{{ r.detected_damage }}</td>
+    <td>{{ sev_pill(r.severity_level) }}</td>
+    <td><span class="pill {{ r.repair_priority|lower }}">{{ r.repair_priority|title }}</span></td>
+    <td>{{ citizen_label(r) }}</td>
+    <td>{{ r.created_at|fmtday }}</td>
+    <td>{{ r.days_elapsed }}{% if r.is_overdue() %} <span class="pill critical">+{{ r.days_overdue }}</span>{% endif %}</td>
+    <td>{{ r.officer_name or ('Dept: ' ~ r.department if r.department else 'Unassigned') }}</td>
+    <td>{{ status_pill(r) }}</td>
+    <td class="actions">
+      {% if r.status != 'RESOLVED' %}
+        <a class="btn secondary small" href="{{ url_for('authority.manage', report_id=r.report_id) }}#assign">Assign</a>
+        <a class="btn secondary small" href="{{ url_for('authority.manage', report_id=r.report_id) }}#status">Update Status</a>
+        <a class="btn small" href="{{ url_for('authority.manage', report_id=r.report_id) }}#resolve">Resolve</a>
+      {% endif %}
+      <a class="btn secondary small" href="{{ url_for('report_detail', report_id=r.report_id) }}">View Report</a>
+    </td>
+  </tr>
+  {% endfor %}
+</table></div>
+{% else %}<div class="empty-state">No reports here.</div>{% endif %}
+{% endmacro %}

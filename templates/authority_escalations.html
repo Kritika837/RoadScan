@@ -1,0 +1,30 @@
+{% extends "authority_base.html" %}
+{% block title %}Escalations{% endblock %}
+{% block content %}
+<h1 style="font-size:1.9rem">Escalation required</h1>
+<p class="lede">Open reports that passed the {{ cfg.SLA_DAYS }}-day resolution target. Escalation is <b>simulated</b>: it records that the next authority level should act, and does not notify any real authority.</p>
+<div class="card">
+{% if rows %}
+<div class="table-wrap"><table>
+  <tr><th>Report ID</th><th>Location</th><th>Damage</th><th>Current authority</th><th>Days pending</th><th>Target date</th><th>Escalation level</th><th></th></tr>
+  {% for r in rows %}
+  <tr>
+    <td><a class="report-id" href="{{ url_for('authority.manage', report_id=r.report_id) }}"><b>{{ r.report_id }}</b></a></td>
+    <td>{{ r.location or 'Not specified' }}</td><td>{{ r.detected_damage }}</td>
+    <td>{{ r.department or 'Unassigned' }}{% if r.officer_name %}<div class="muted small">{{ r.officer_name }}</div>{% endif %}</td>
+    <td>{{ r.days_elapsed }} <span class="pill critical">{{ r.days_overdue }} overdue</span></td>
+    <td>{{ r.target_at|fmtday }}</td>
+    <td>{{ r.escalation_level_name }}{% if r.next_escalation_name %}<div class="muted small">next: {{ r.next_escalation_name }}</div>{% endif %}</td>
+    <td class="actions">
+      {% if r.next_escalation_name %}
+      <form method="post" action="{{ url_for('authority.escalate', report_id=r.report_id) }}" style="display:inline"><input type="hidden" name="return_to" value="{{ url_for('authority.escalations') }}"><button class="btn danger small" type="submit">Escalate</button></form>
+      {% else %}<span class="muted small">Highest level</span>{% endif %}
+      <a class="btn secondary small" href="{{ url_for('authority.manage', report_id=r.report_id) }}">Open</a>
+    </td>
+  </tr>
+  {% endfor %}
+</table></div>
+{% else %}<div class="empty-state"><h3>Nothing overdue</h3><p>Every open report is inside its {{ cfg.SLA_DAYS }}-day target.</p></div>{% endif %}
+</div>
+<p class="muted small" style="margin-top:12px">Escalation ladder: {{ escalation_levels|join('  \u2192  ') }}</p>
+{% endblock %}

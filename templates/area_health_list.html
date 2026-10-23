@@ -1,0 +1,37 @@
+{% extends "authority_base.html" %}
+{% block title %}Area Health &middot; Roadscan{% endblock %}
+{% block content %}
+<h1>Area Road Health</h1>
+<p class="lede">
+  An area's Road Health Score is the mean of the most recent Road Health Score for every
+  distinct road segment inspected or reported in that area &mdash; never a single photo's
+  score stretched over a whole area. Only areas with at least one real inspection or
+  report are listed here.
+</p>
+
+{% if areas %}
+<div class="grid-3 section-gap">
+  {% for a in areas %}
+  <a href="{{ url_for('area_health_detail', area_key=a.area_key) }}" class="card stat-card" style="text-decoration:none; color:inherit; display:block;">
+    <div class="muted">{{ a.label }}</div>
+    {% if a.score is not none %}
+    <div class="gauge-score">{{ a.score }}<span style="font-size:0.9rem; color:var(--chalk-dim);">/100</span></div>
+    <div class="gauge-label"><span class="pill {{ a.condition|lower }}">{{ a.condition }}</span></div>
+    {% else %}
+    <div class="muted" style="margin-top:10px;">Insufficient data</div>
+    {% endif %}
+    <div class="muted" style="margin-top:10px; font-size:0.82rem;">
+      {{ a.segment_count }} inspected segment{{ '' if a.segment_count == 1 else 's' }} &middot; {{ a.report_count }} report{{ '' if a.report_count == 1 else 's' }}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card section-gap">
+  <div class="empty-state">
+    No area data yet. Area/City are optional fields on Inspect Road and Report Road Damage &mdash;
+    fill them in (or use "Use My Location") to start building an Area Health picture.
+  </div>
+</div>
+{% endif %}
+{% endblock %}

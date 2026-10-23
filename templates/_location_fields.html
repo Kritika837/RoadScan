@@ -1,0 +1,95 @@
+{# Shared GPS + manual-area location capture block (PART 1). Included by
+   index.html (Inspect Road) and report_form.html (Report Road Damage).
+   GPS is opt-in only - nothing is collected until the person taps the
+   button and grants browser permission - and every field here is
+   optional, so the form works fully with none of it filled in. #}
+<div class="location-block">
+  <button type="button" class="btn secondary" id="useLocationBtn">Use My Location</button>
+  <span class="muted" id="geoStatus" style="margin-left:10px;"></span>
+
+  <div class="grid-2" style="margin-top:14px;">
+    <div>
+      <label for="latitude">Latitude <span class="muted">(optional &mdash; filled by "Use My Location")</span></label>
+      <input type="text" id="latitude" name="latitude" placeholder="e.g. 31.2240" readonly>
+    </div>
+    <div>
+      <label for="longitude">Longitude <span class="muted">(optional)</span></label>
+      <input type="text" id="longitude" name="longitude" placeholder="e.g. 75.7739" readonly>
+    </div>
+  </div>
+
+  <p class="muted" style="margin-top:14px; margin-bottom:2px;">Or enter the area manually:</p>
+  <div class="grid-2">
+    <div>
+      <label for="area">Area <span class="muted">(optional)</span></label>
+      <input type="text" id="area" name="area" placeholder="e.g. Model Town">
+    </div>
+    <div>
+      <label for="city">City <span class="muted">(optional)</span></label>
+      <input type="text" id="city" name="city" placeholder="e.g. Jalandhar">
+    </div>
+  </div>
+  <div class="grid-2">
+    <div>
+      <label for="state">State <span class="muted">(optional)</span></label>
+      <input type="text" id="state" name="state" placeholder="e.g. Punjab">
+    </div>
+    <div>
+      <label for="road_name">Road name <span class="muted">(optional)</span></label>
+      <input type="text" id="road_name" name="road_name" placeholder="e.g. NH-44 service road">
+    </div>
+  </div>
+  <label for="landmark">Nearby landmark <span class="muted">(optional)</span></label>
+  <input type="text" id="landmark" name="landmark" placeholder="e.g. opposite bus stand">
+  <p class="muted" style="margin-top:6px;">
+    Area/City/State group this report or inspection for the Area Health Scorecard and the Damage Map.
+    Road name (plus area/city) identifies the road segment for its health history. All optional.
+  </p>
+</div>
+
+<script>
+(function () {
+  var btn = document.getElementById('useLocationBtn');
+  var statusEl = document.getElementById('geoStatus');
+  var latInput = document.getElementById('latitude');
+  var lonInput = document.getElementById('longitude');
+  var areaInput = document.getElementById('area');
+  var cityInput = document.getElementById('city');
+  var stateInput = document.getElementById('state');
+
+  btn.addEventListener('click', function () {
+    if (!('geolocation' in navigator)) {
+      statusEl.textContent = 'Geolocation is not supported by this browser. Please enter the area manually below.';
+      return;
+    }
+    statusEl.textContent = 'Requesting location permission...';
+    navigator.geolocation.getCurrentPosition(
+      function (pos) {
+        latInput.value = pos.coords.latitude.toFixed(6);
+        lonInput.value = pos.coords.longitude.toFixed(6);
+        statusEl.textContent = 'Location captured (' + latInput.value + ', ' + lonInput.value + '). Looking up area name...';
+
+        fetch('/api/reverse-geocode?lat=' + encodeURIComponent(latInput.value) + '&lon=' + encodeURIComponent(lonInput.value))
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data && data.ok) {
+              if (!areaInput.value && data.area) areaInput.value = data.area;
+              if (!cityInput.value && data.city) cityInput.value = data.city;
+              if (!stateInput.value && data.state) stateInput.value = data.state;
+              statusEl.textContent = 'Location captured. Area fields pre-filled from GPS (estimate) \u2014 please check and edit if needed.';
+            } else {
+              statusEl.textContent = 'Location captured. Could not auto-detect the area name \u2014 please fill Area/City/State manually.';
+            }
+          })
+          .catch(function () {
+            statusEl.textContent = 'Location captured. Could not auto-detect the area name \u2014 please fill Area/City/State manually.';
+          });
+      },
+      function (err) {
+        statusEl.textContent = 'Could not get your location (' + err.message + '). Please enter the area manually below.';
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  });
+})();
+</script>

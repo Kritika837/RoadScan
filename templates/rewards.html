@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Rewards - RoadScan{% endblock %}
+{% block content %}
+<div class="container">
+  <h1>Rewards</h1>
+  <p class="lede">Earn points for helping fix your roads. Points come from real events on your reports, once each.</p>
+
+  {% include "_level_card.html" %}
+
+  {% if summary.level.current.key == cfg.CERTIFICATE_BADGE_KEY %}
+  <div class="big-badge section-gap">
+    <div class="i">{{ summary.level.current.icon }}</div>
+    <h2 style="margin:6px 0">{{ summary.level.current.name|upper }}</h2>
+    <p style="margin:0 0 12px">{{ summary.level.current.tagline }}</p>
+    <a class="btn lane" href="{{ url_for('certificate_download') }}">Download Certificate</a>
+    <p class="muted small" style="margin:10px 0 0">A RoadScan recognition certificate. It is not issued by any government body.</p>
+  </div>
+  {% else %}
+  <div class="card flat section-gap">
+    <b>Certificate:</b> unlocks at {{ cert_min|fmtnum }} points with the {{ (cfg.BADGES|selectattr('key','equalto',cfg.CERTIFICATE_BADGE_KEY)|first).name }} badge.
+    <span class="muted">You have {{ summary.points|fmtnum }}.</span>
+  </div>
+  {% endif %}
+
+  <div class="grid-2 section-gap">
+    <div class="card">
+      <h2>How to earn points</h2>
+      <ul class="earn">
+        {% for key, pts in cfg.POINTS.items() %}
+        <li><span class="p">+{{ pts }}</span><div><b>{{ cfg.POINT_LABELS[key] }}</b><div class="muted small">{{ cfg.POINT_HELP[key] }}</div></div></li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Your recent activity</h2>
+      {% if history %}
+      <ul class="earn">
+        {% for e in history %}
+        <li><span class="p">+{{ e.points }}</span><div><b>{{ e.label }}</b><div class="muted small"><a class="report-id" href="{{ url_for('report_detail', report_id=e.report_id) }}">{{ e.report_id }}</a>{% if e.location %} &middot; {{ e.location }}{% endif %}<br>{{ e.created_at|fmtday }}</div></div></li>
+        {% endfor %}
+      </ul>
+      <a class="small" href="{{ url_for('profile') }}">See all activity</a>
+      {% else %}
+      <div class="empty-state"><p>No points yet. Your first valid report earns +{{ cfg.POINTS.REPORT_SUBMITTED }}.</p><a class="btn lane" href="{{ url_for('report_form') }}">Report Road Damage</a></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card section-gap">
+    <h2>Badges</h2>
+    <div class="ladder">
+      {% for b in cfg.BADGES %}
+      <div class="lv {{ 'on' if summary.points >= b.min_points else 'off' }}"><div class="i">{{ b.icon }}</div><b>{{ b.name }}</b><div class="muted small">{{ b.min_points|fmtnum }}+ points</div></div>
+      {% endfor %}
+    </div>
+    <p class="muted small" style="margin:12px 0 0">Badges are RoadScan recognition for community contribution. They are not government-issued.</p>
+  </div>
+</div>
+{% endblock %}

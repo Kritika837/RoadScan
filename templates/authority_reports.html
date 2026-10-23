@@ -1,0 +1,16 @@
+{% extends "authority_base.html" %}
+{% from "_auth_rows.html" import report_table with context %}
+{% block title %}{{ label }}{% endblock %}
+{% block content %}
+<h1 style="font-size:1.9rem">{{ label }}</h1>
+<div class="tabs">
+  {% for key, v in views.items() %}<a href="{{ url_for('authority.reports', view=key) }}" class="{{ 'on' if key == view }}">{{ v[0] }}</a>{% endfor %}
+</div>
+<form method="get" class="inline-form" style="margin-bottom:14px">
+  <input type="hidden" name="view" value="{{ view }}">
+  <div style="flex:2 1 240px"><label>Search</label><input type="search" name="q" value="{{ q }}" placeholder="Report ID, location, damage, department"></div>
+  <div><label>Severity</label><select name="severity"><option value="">All</option>{% for s in ['LOW','MODERATE','HIGH','CRITICAL'] %}<option value="{{ s }}" {{ 'selected' if severity == s }}>{{ s|title }}</option>{% endfor %}</select></div>
+  <div style="flex:0 0 auto"><button class="btn" type="submit">Filter</button></div>
+</form>
+<div class="card">{{ report_table(rows) }}</div>
+{% endblock %}

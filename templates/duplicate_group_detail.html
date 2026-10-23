@@ -1,0 +1,34 @@
+{% extends "authority_base.html" %}
+{% block title %}{{ group.group_id }} &middot; Duplicate Group{% endblock %}
+{% block content %}
+<h1>Group {{ group.group_id }}</h1>
+<p class="lede">
+  {% if group.confidence == 'likely' %}<span class="pill high">Likely related reports</span>
+  {% else %}<span class="pill medium">Possible duplicate</span>{% endif %}
+  &mdash; {{ members|length }} reports appear to refer to the same road issue
+  ({{ group.damage_label or group.damage_class }}, {{ group.location_label }}).
+</p>
+
+<div class="card section-gap">
+  <h2>Member reports</h2>
+  <table>
+    <tr><th>Report ID</th><th>Location</th><th>Damage</th><th>Priority</th><th>Status</th><th></th></tr>
+    {% for r in members %}
+    <tr>
+      <td>{{ r.report_id }}</td>
+      <td>{{ r.location or '(not specified)' }}</td>
+      <td>{{ r.detected_damage }}</td>
+      <td><span class="pill {{ r.repair_priority|lower }}">{{ r.repair_priority }}</span></td>
+      <td><span class="pill status-{{ r.status|lower }}">{{ r.status }}</span></td>
+      <td><a href="{{ url_for('report_detail', report_id=r.report_id) }}">View &rarr;</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="disclaimer">
+  RoadScan groups reports that show strong combined evidence of referring to the same physical
+  damage (GPS proximity and/or matching location text, plus matching damage type). Reports are
+  never merged or deleted &mdash; each remains individually accessible and trackable.
+</div>
+{% endblock %}
