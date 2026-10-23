@@ -13,3 +13,5 @@ Jinja2>=3.1
 # torchvision>=0.15
 
 requests>=2.28   # optional: lets "Use My Location" fill in area/city/state
+
+gunicorn>=22.0
