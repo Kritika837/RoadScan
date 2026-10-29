@@ -24,12 +24,13 @@ INTERACTION: written to by `app.py` after each analysis; read by the
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import time
 from dataclasses import dataclass
 from typing import List, Optional
 
-DB_PATH = "data/history.sqlite3"
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "history.sqlite3")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS assessments (

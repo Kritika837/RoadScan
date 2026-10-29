@@ -34,7 +34,7 @@ INTERACTION: written to by app.py's /report/submit route right after the
 """
 
 from __future__ import annotations
-
+import os
 import json
 import sqlite3
 import time
@@ -43,7 +43,7 @@ from typing import List, Optional, Dict
 
 import config
 
-DB_PATH = "data/history.sqlite3"
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "history.sqlite3")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS citizen_reports (

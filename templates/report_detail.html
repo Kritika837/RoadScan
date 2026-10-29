@@ -135,15 +135,13 @@
   </div>
 
   <div class="btn-row section-gap">
+    <a class="btn" href="{{ url_for('download_report_pdf', report_id=rep.report_id) }}">Download PDF</a>
     <a class="btn secondary" href="{{ url_for('track_report') }}">Track another report</a>
     <a class="btn secondary" href="{{ url_for('my_reports') }}">My Reports</a>
   </div>
   <div class="disclaimer">RoadScan gives a visual, AI-assisted assessment. It is not a certified engineering inspection. Status updates in this prototype are recorded inside RoadScan only.</div>
 </div>
-{% endblock %}
 
-{% block scripts %}
-{% if rep.latitude is not none and rep.longitude is not none %}
 <script>
 window.addEventListener('load', function () {
   var el = document.getElementById('miniMap');

@@ -29,10 +29,10 @@ INTERACTION: `run_migrations()` is called once from app.py at startup,
 """
 
 from __future__ import annotations
-
+import os
 import sqlite3
 
-DB_PATH = "data/history.sqlite3"
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "history.sqlite3")
 
 # table -> [(column_name, sql_type), ...]
 NEW_COLUMNS = {

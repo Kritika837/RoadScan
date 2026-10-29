@@ -29,6 +29,18 @@ import cv2
 import numpy as np
 from flask import (Flask, render_template, request, url_for, redirect, flash, session,
                    jsonify, Response)
+from io import BytesIO
+from xml.sax.saxutils import escape
+
+from flask import send_file
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+)
 
 from detector import get_default_detector, DetectorUnavailableError
 import severity as sev
@@ -642,7 +654,178 @@ def report_detail(report_id):
                             related=_related_reports(rep), is_owner=owner,
                             resolved_reward=resolved_reward,
                             can_confirm=owner and rep.status == "RESOLVED" and not rep.citizen_followup_path)
+@app.route("/reports/<report_id>/pdf")
+def download_report_pdf(report_id):
+    rep = creport.get_report(report_id)
 
+    if not rep:
+        flash(f"We couldn't find a report with ID '{report_id}'.")
+        return redirect(url_for("track_report"))
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=18 * mm,
+        leftMargin=18 * mm,
+        topMargin=18 * mm,
+        bottomMargin=18 * mm,
+        title=f"RoadScan Report {rep.report_id}",
+        author="RoadScan",
+    )
+
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(
+        name="ReportTitle",
+        parent=styles["Title"],
+        alignment=TA_CENTER,
+        textColor=colors.HexColor("#174a6e"),
+        spaceAfter=6 * mm,
+    ))
+    styles.add(ParagraphStyle(
+        name="SectionHeading",
+        parent=styles["Heading2"],
+        textColor=colors.HexColor("#174a6e"),
+        spaceBefore=5 * mm,
+        spaceAfter=2 * mm,
+    ))
+
+    def safe(value):
+        return escape(str(value if value not in (None, "") else "Not recorded"))
+
+
+    def add_image(story, relative_path, caption):
+        if not relative_path:
+            return
+
+        # Convert a web path such as /static/uploads/photo.jpg
+        # into a path relative to the RoadScan application folder.
+        raw = str(relative_path).replace("\\", "/").split("?", 1)[0]
+        raw = raw.lstrip("/")
+
+        if not raw.startswith("static/"):
+            app.logger.warning("Skipping unexpected PDF image path: %s", raw)
+            return
+
+        static_root = os.path.abspath(os.path.join(APP_ROOT, "static"))
+        path = os.path.abspath(
+            os.path.join(APP_ROOT, *raw.split("/"))
+        )
+
+        # Keep image access inside RoadScan's static directory.
+        if os.path.commonpath([static_root, path]) != static_root:
+            app.logger.warning("PDF image path is outside static directory")
+            return
+
+        if not os.path.isfile(path):
+            app.logger.warning("PDF image file not found: %s", path)
+            return
+
+        try:
+            story.append(Paragraph(escape(caption), styles["Normal"]))
+            image = Image(
+                path,
+                width=150 * mm,
+                height=95 * mm,
+                kind="proportional",
+            )
+            image.hAlign = "LEFT"
+            story.append(image)
+            story.append(Spacer(1, 3 * mm))
+        except (OSError, ValueError):
+            app.logger.exception("Could not add image to PDF: %s", path)
+
+
+    story = [
+        Paragraph("RoadScan", styles["ReportTitle"]),
+        Paragraph("Road Damage Inspection Report", styles["Heading2"]),
+        Spacer(1, 3 * mm),
+    ]
+
+    rows = [
+        ["Report ID", safe(rep.report_id)],
+        ["Submitted", safe(time.strftime("%d %b %Y, %H:%M", time.localtime(rep.created_at)))],
+        ["Status", safe(rep.display_status_label)],
+        ["Location", safe(rep.location)],
+        ["Road", safe(rep.road_name)],
+        ["Landmark", safe(rep.landmark)],
+        ["Detected damage", safe(rep.detected_damage)],
+        ["Severity", safe(rep.severity_level)],
+        ["Severity score", safe(rep.severity_score)],
+        ["Road health", f"{safe(rep.health_score)} / 100"],
+        ["Health condition", safe(rep.health_condition)],
+        ["Repair priority", safe(rep.repair_priority)],
+        ["Priority reason", safe(rep.priority_reason)],
+    ]
+
+    table = Table(rows, colWidths=[43 * mm, 125 * mm], repeatRows=0)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#edf3f7")),
+        ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor("#174a6e")),
+        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#d6dee5")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 7),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(table)
+
+    if rep.description:
+        story.extend([
+            Spacer(1, 4 * mm),
+            Paragraph("Citizen description", styles["SectionHeading"]),
+            Paragraph(safe(rep.description), styles["Normal"]),
+        ])
+
+    story.append(Paragraph("Evidence images", styles["SectionHeading"]))
+    add_image(story, rep.image_path, "Original citizen photo")
+    add_image(story, rep.annotated_image_path, "Annotated damage image")
+
+    if rep.resolution_image_path:
+        add_image(story, rep.resolution_image_path, "Repair evidence photo")
+
+    if rep.detections:
+        story.append(Paragraph("Detection details", styles["SectionHeading"]))
+        detection_rows = [["Damage type", "Confidence"]]
+        for detection in rep.detections:
+            if isinstance(detection, dict):
+                detection_rows.append([
+                    safe(detection.get("class_name") or detection.get("class_id") or "Damage"),
+                    safe(detection.get("confidence", "Not recorded")),
+                ])
+        if len(detection_rows) > 1:
+            details = Table(detection_rows, colWidths=[110 * mm, 58 * mm], repeatRows=1)
+            details.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#174a6e")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#d6dee5")),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]))
+            story.append(details)
+
+    story.extend([
+        Spacer(1, 8 * mm),
+        Paragraph(
+            "Disclaimer: RoadScan provides a visual, AI-assisted assessment. "
+            "This report is not a certified engineering inspection. "
+            "Workflow status is recorded within the RoadScan prototype.",
+            styles["Italic"],
+        ),
+    ])
+
+    doc.build(story)
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"RoadScan_{rep.report_id}.pdf",
+    )
 
 @app.route("/reports/<report_id>/confirm-repair", methods=["POST"])
 def confirm_repair(report_id):

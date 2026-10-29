@@ -329,21 +329,46 @@ class HeuristicCVDetector(RoadDamageDetector):
             return float(inner.mean())
         return outer_sum / outer_count
 
+    # @staticmethod
+    # def _branching_score(cnt) -> float:
+    #     """Rough proxy for how 'net-like' a contour is, via convexity-defect density."""
+    #     try:
+    #         hull_idx = cv2.convexHull(cnt, returnPoints=False)
+    #         if hull_idx is None or len(hull_idx) < 4:
+    #             return 0.0
+    #         defects = cv2.convexityDefects(cnt, hull_idx)
+    #         if defects is None:
+    #             return 0.0
+    #         depths = defects[:, 0, 3] / 256.0
+    #         significant = np.sum(depths > 2.0)
+    #         return float(min(1.0, significant / 12.0))
+    #     except cv2.error:
+    #         return 0.0
     @staticmethod
     def _branching_score(cnt) -> float:
         """Rough proxy for how 'net-like' a contour is, via convexity-defect density."""
         try:
+            if cnt is None or len(cnt) < 4:
+                return 0.0
+
             hull_idx = cv2.convexHull(cnt, returnPoints=False)
             if hull_idx is None or len(hull_idx) < 4:
                 return 0.0
+
             defects = cv2.convexityDefects(cnt, hull_idx)
-            if defects is None:
+            if defects is None or defects.size == 0:
                 return 0.0
-            depths = defects[:, 0, 3] / 256.0
+
+            # OpenCV may return different array shapes; normalize before indexing.
+            defects = np.asarray(defects).reshape(-1, 4)
+            depths = defects[:, 3].astype(float) / 256.0
+
             significant = np.sum(depths > 2.0)
             return float(min(1.0, significant / 12.0))
-        except cv2.error:
+
+        except (cv2.error, ValueError, IndexError, TypeError):
             return 0.0
+
 
 
 # ---------------------------------------------------------------------------
