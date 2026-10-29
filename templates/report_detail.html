@@ -1,3 +1,4 @@
+
 {% extends "base.html" %}
 {% from "_macros.html" import sev_pill, status_pill, road_tracker %}
 {% block title %}{{ rep.report_id }} - RoadScan{% endblock %}
@@ -152,5 +153,4 @@ window.addEventListener('load', function () {
   L.circleMarker([{{ rep.latitude }}, {{ rep.longitude }}], {radius: 10, color: '#fff', weight: 3, fillColor: '{{ cfg.SEVERITY_COLORS.get(rep.severity_level or "NONE", "#8a97a3") }}', fillOpacity: 1}).addTo(m);
 });
 </script>
-{% endif %}
 {% endblock %}
